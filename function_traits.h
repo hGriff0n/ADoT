@@ -47,19 +47,19 @@ namespace shl {
 	template <class Callable>
 	struct function_traits {
 		private:
-		using call_type = function_traits<decltype(&Callable::operator())>;
+			using call_type = function_traits<decltype(&Callable::operator())>;
 
 		public:
-		using return_type = typename call_type::return_type;
-		using arg_types = typename call_type::arg_types;
-		using __arg_types = typename call_type::__arg_types;		// Keep the this pointer
+			using return_type = typename call_type::return_type;
+			using arg_types = typename call_type::arg_types;
+			using __arg_types = typename call_type::__arg_types;		// Keep the this pointer
 
-		static constexpr size_t arity = call_type::arity - 1;
+			static constexpr size_t arity = call_type::arity - 1;
 
-		template <size_t i>
-		struct arg {
-			using type = std::tuple_element_t<i + 1, arg_types>;
-		};
+			template <size_t i>
+			struct arg {
+				using type = std::tuple_element_t<i, arg_types>;
+			};
 	};
 
 	// Remove & and && qualifiers

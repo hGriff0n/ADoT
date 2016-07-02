@@ -54,6 +54,7 @@
 
 *.app
 
+
 # Other
 *.vcxproj*
 Debug/*

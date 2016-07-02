@@ -1,0 +1,53 @@
+Algebraic Data Types syntax
+	I don't think I have much that actually implements algebraic typing
+	It only allows one type to have no () member
+
+Basic match syntax - a "lambda" visitor
+
+	match(expr)
+	    | [](const std::string& name) { std::cout << name << "\n"; }
+	    | [](int count) { std::cout << count << "\n"; }
+	    | []() { std::cout << "No member\n"; }
+
+match would return an "unmatched dispatch" with the expr as a member variable
+calling "|" on an unmatched dispatch will try to invoke the given function on the member expression (functor really)
+	if the expression matches the function call, a "matched dispatch" is returned with the expr and function as members
+	otherwise the unmatched dispatch is forwarded to the next call
+calling "|" on a matched dispatch immediately returns the fulfilled contract
+	unless the given function is a better match for the expression
+	this can be done rather efficiently with templates and forwarding (match and | will return rvalues)
+the matched dispatch's destructor will execute the selected function passing the expression as the argument
+the unmatched dispatch's destructor would throw an "non-exhaustive pattern" exception
+an empty lambda handles the generic ("_") case
+
+
+Matcher and MatchBuilder - first class matching
+
+	auto m = match()
+	    | [](const std::string& name) { std::cout << name << "\n"; }
+	    | [](int count) { std::cout << count << "\n"; }
+	    | []() { std::cout << "No member\n"; };
+
+	m(expr), m.match(expr);
+
+an empty call to match creates a builder that can be used to piecewise construct a matcher object
+	the syntax for adding cases to the builder is exactly the same as for the normal match
+TODO: Find a way to finalize the builder
+	overload operator (||, \ ???)
+	fin method (necessitates wrapping in parentheses)
+the constructed matcher can then be passed around in user code
+	executing match works the same way as normal, but the object/members is not consumed
+	operator() is overloaded for matchers, so they can be chained (not useful yet, but this might be how I can get ADTs to work)
+
+TODO: Figure out syntax for creating AlgebraicTypes
+TODO: Figure out how to make a match for ADTs
+
+// Syntax Canvas
+
+// Overload operator> to get adt dispatch ???
+	// Not quite at the level of full ADT yet
+	// It doesn't work all that well for normal dispatch either (except for clearing up the "_" case)
+match (expr)
+    | Some > [](const auto& name) { std::cout << name << "\n"; }
+    | Some > [](auto count) { std::cout << count << "\n"; }
+    | None > []() { std::cout << "No match found\n"; }

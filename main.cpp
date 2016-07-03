@@ -5,16 +5,21 @@
 #include "has_interface.h"
 
 // TODO: Add match overload for string constants (const char [N])
-// TODO: Should I add const before the '&' as well ???
-// TODO: Allow throwing from the unmatched contract destructor
-// TODO: Rework to allow for variant, tuple, and any to be passed
-// TODO: Add 'inline' to resolution functions
+// TODO: Add Non-exhaustive pattern exception class
+// TODO: Add MatchBuilder and Matcher classes
+// TODO: Rework match to allow for variant and any to be passed
+// TODO: Rework match to allow for tuple to be passed
+// TODO: Remove explicit void return type in takes_args (needed to allow for chaining)
+// TODO: Add 'inline' to resolution functions ???
+
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
 
 // Interface Classes
-// TODO: Remove dependency on having no return values
-template <class Fn, class... Args>
+template<class Fn, class... Args>
 struct takes_args : shl::has_interface<Fn, void(Args...)> {};
+
+template<class Fn>
+struct base_case : shl::has_interface<Fn, void()> {};
 
 template<class T>
 struct UnmatchedContract {
@@ -23,14 +28,12 @@ struct UnmatchedContract {
 };
 
 template<class T, class F>
-class MatchedContract : public UnmatchedContract<T>{
+struct MatchedContract : UnmatchedContract<T>{
 	F fn;
+	MatchedContract(F&&);
 
-	public:
-		MatchedContract(F&&);
-
-		virtual void eval(T val);
-		constexpr operator bool() { return true; }
+	virtual void eval(T val);
+	constexpr operator bool() { return true; }
 };
 
 template <class T>
@@ -49,8 +52,7 @@ class MatchResolver {
 };
 
 // Helper class to prevent impossible errors from stopping compilation
-	// Little cheat to get around the type checker
-	// Will be able to replace with 'if constexpr'
+	// Little cheat to get around the type checker (can replace with 'if constexpr')
 template<bool> struct Invoker;
 
 
@@ -93,6 +95,7 @@ template<class T> MatchResolver<T>::MatchResolver(T val) : val{ val }, match{ ne
 template<class T> MatchResolver<T>::MatchResolver(MatchResolver<T>&& res) : val{ res.val }, match{ res.match } { res.match = nullptr; }
 template<class T> MatchResolver<T>::~MatchResolver() {
 	if (*match) {
+		std::cout << "Calling\n";
 		match->eval(val);
 		delete match;
 	} else {
@@ -107,9 +110,12 @@ template<class T> MatchResolver<T>::~MatchResolver() {
  */
 template<class T> template<class F>
 MatchResolver<T>&& MatchResolver<T>::operator|(F&& fn) {
-	constexpr auto matches = takes_args<F, T>::value;
+	constexpr auto fn_matches = takes_args<F, T>::value;
+	constexpr auto is_base_case = base_case<F>::value;
 
-	if (matches && !*match) {
+	std::cout << fn_matches << " - " << is_base_case << "\n";
+
+	if (!*match && (fn_matches || is_base_case)) {
 		//Invoker<matches>::invoke(std::move(fn), val);			// Can't replace matches with true as that would cause the compiler to try to type check invalid functions (compilation error)
 
 		delete match;
@@ -127,9 +133,16 @@ template<class T, class F>
 MatchedContract<T, F>::MatchedContract(F&& fn) : fn{ fn } {}
 template<class T> void UnmatchedContract<T>::eval(T val) {}
 
+// This solution doesn't work for the base case
 template<class T, class F>
 void MatchedContract<T, F>::eval(T val) {
-	Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);
+	constexpr auto is_base_case = base_case<F>::value;
+
+	if (is_base_case)
+		Invoker<is_base_case>::invoke(std::move(fn));
+
+	else
+		Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);
 }
 
 
@@ -137,6 +150,11 @@ void MatchedContract<T, F>::eval(T val) {
  * Invoker specializations
  */
 template<> struct Invoker<true> {
+	template <class F>
+	static void invoke(F&& fn) {
+		fn();
+	}
+
 	template <class F, class T>
 	static void invoke(F&& fn, T val) {
 		fn(val);
@@ -144,6 +162,8 @@ template<> struct Invoker<true> {
 };
 
 template<> struct Invoker<false> {
+	template <class F>
+	static void invoke(F&& fn) {}
 	template <class F, class T>
 	static void invoke(F&& fn, T val) {}
 };

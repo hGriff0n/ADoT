@@ -2,63 +2,71 @@
 #include <string>
 #include <utility>
 
-#include "function_traits.h"
+#include "has_interface.h"
 
 // TODO: Add match overload for string constants (const char [N])
 // TODO: Should I add const before the '&' as well ???
 // TODO: Allow throwing from the unmatched contract destructor
 // TODO: Rework to allow for variant, tuple, and any to be passed
+// TODO: Add 'inline' to resolution functions
+// Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
 
 // Interface Classes
-class MatchBuilder {};
+// TODO: Remove dependency on having no return values
+template <class Fn, class... Args>
+struct takes_args : shl::has_interface<Fn, void(Args...)> {};
 
-class Matcher {};
-
-// Helper class to determine if Arg == Function::args that avoids compiler errors
-	// Could be done with if constexpr in C++17
-template <int arity>
-struct MatchResolver {
-	template <typename Function, typename Arg>
-	constexpr static bool resolve();
-};
-
-template <typename T>
+template<class T>
 struct UnmatchedContract {
-	T val;
-
-	UnmatchedContract(T val) : val{ val } {}
-	//virtual ~UnmatchedContract() { throw "Non-exhaustive pattern match"; }					// abort is being called
-	virtual ~UnmatchedContract() { std::cout << "Non-exhaustive match pattern found"; }
-
-	template <typename F, typename Function = shl::function_traits<F>>
-	UnmatchedContract<T>&& operator|(F&& fn);
+	virtual void eval(T val);
+	virtual constexpr operator bool() { return false; }
 };
 
-template <typename T, typename F>
-class MatchedContract {
-	T val;
+template<class T, class F>
+class MatchedContract : public UnmatchedContract<T>{
 	F fn;
 
-	MatchedContract(T&& val, F&& fn) : val{ val }, fn{ fn } {}
-	~MatchedContract() { fn(val); }
+	public:
+		MatchedContract(F&&);
 
-	template <typename FF, typename Tratis = shl::function_traits<FF>>
-	MatchedContract<T, F>&& operator|(FF&& fn);
+		virtual void eval(T val);
+		constexpr operator bool() { return true; }
 };
 
+template <class T>
+class MatchResolver {
+	private:
+		T val;
+		UnmatchedContract<T>* match;
 
-// Interface Functions
-MatchBuilder&& match();
-template <typename T> UnmatchedContract<const T&>&& match(const T& val);
+	public:
+		MatchResolver(T);
+		MatchResolver(MatchResolver&&);
+		~MatchResolver();
+
+		template <class F>
+		MatchResolver&& operator|(F&& fn);
+};
+
+// Helper class to prevent impossible errors from stopping compilation
+	// Little cheat to get around the type checker
+	// Will be able to replace with 'if constexpr'
+template<bool> struct Invoker;
+
+
+// Interface methods
+template<class T> MatchResolver<const T&> match(const T& val);
+
 
 int main() {
+	auto test = std::make_tuple(3);
+	
 	try {
-		std::string val = "Hello";
-
-		match(val)
+		match(test)
 			| [](const std::string& name) { std::cout << "A string\n"; }
-			| [](const int& name) { std::cout << "An Int\n"; }
+			| [](const int& name) { std::cout << "An int\n"; }
 			| []() { std::cout << "Nothing\n"; };
+
 	} catch (std::string& e) {
 		std::cout << e;
 	}
@@ -67,75 +75,75 @@ int main() {
 }
 
 
+
 /*
- * Overloads for match function
+ * Interface methods
  */
-MatchBuilder&& match() {
-	return std::move(MatchBuilder{});
-}
+//Matcher match() { return Matcher{}; }
 
-template <typename T>
-UnmatchedContract<const T&>&& match(const T& val) {
-	return std::move(UnmatchedContract<const T&>{ val });
-}
-
-UnmatchedContract<const std::string&>&& match(const char* str) {
-	return std::move(UnmatchedContract<const std::string&>{ str });
+template<class T> MatchResolver<const T&> match(const T& val) {
+	return MatchResolver<const T&>{ val };
 }
 
 
 /*
- * Overloads for unmatched contracts
+ * MatchResolver creation/destruction
  */
-template <typename T>
-template <typename F, typename Function>
-UnmatchedContract<T>&& UnmatchedContract<T>::operator|(F&& fn) {
-	bool match = MatchResolver<Function::arity>::resolve<Function, T>();
+template<class T> MatchResolver<T>::MatchResolver(T val) : val{ val }, match{ new UnmatchedContract<T>{} } {}
+template<class T> MatchResolver<T>::MatchResolver(MatchResolver<T>&& res) : val{ res.val }, match{ res.match } { res.match = nullptr; }
+template<class T> MatchResolver<T>::~MatchResolver() {
+	if (*match) {
+		match->eval(val);
+		delete match;
+	} else {
+		delete match;
+		throw std::string{ "Non-exhaustive pattern found" };	// Why is visual studio calling abort when an exception is thrown ???
+	}
+}
 
-	std::cout << match << "\n";
 
-	// Resolve function match
+/*
+ * operator| magic overloads
+ */
+template<class T> template<class F>
+MatchResolver<T>&& MatchResolver<T>::operator|(F&& fn) {
+	constexpr auto matches = takes_args<F, T>::value;
+
+	if (matches && !*match) {
+		//Invoker<matches>::invoke(std::move(fn), val);			// Can't replace matches with true as that would cause the compiler to try to type check invalid functions (compilation error)
+
+		delete match;
+		match = new MatchedContract<T, F>{ std::move(fn) };		// type cast from MatchedContract<F>* to UnmatchedContract* exists but is inaccessible, How?
+	}
+
 	return std::move(*this);
 }
 
 
 /*
- * Overloads for Matched Contracts
+ * Contract eval
  */
-template <typename T, typename F>
-template <typename FF, typename Traits>
-MatchedContract<T, F>&& MatchedContract<T, F>::operator|(FF&& fn) {
-	return std::move(*this);
+template<class T, class F>
+MatchedContract<T, F>::MatchedContract(F&& fn) : fn{ fn } {}
+template<class T> void UnmatchedContract<T>::eval(T val) {}
+
+template<class T, class F>
+void MatchedContract<T, F>::eval(T val) {
+	Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);
 }
 
 
 /*
- * Overloads for MatchBuilder
+ * Invoker specializations
  */
+template<> struct Invoker<true> {
+	template <class F, class T>
+	static void invoke(F&& fn, T val) {
+		fn(val);
+	}
+};
 
-
-/*
- * Overloads for Matcher
- */
-
-
-/*
- * Overloads for MatchResolver
- */
-template<>
-template<typename Function, typename Arg>
-constexpr bool MatchResolver<0>::resolve() {
-	return true;
-}
-
-template<>
-template<typename Function, typename Arg>
-constexpr bool MatchResolver<1>::resolve() {
-	return std::is_same<Function::arg<0>::type, Arg>::value;
-}
-
-template<int n>
-template<typename Function, typename Arg>
-constexpr bool MatchResolver<n>::resolve() {
-	return false;
-}
+template<> struct Invoker<false> {
+	template <class F, class T>
+	static void invoke(F&& fn, T val) {}
+};

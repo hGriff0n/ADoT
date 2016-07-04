@@ -6,11 +6,12 @@
 #include "has_interface.h"
 
 // TODO: Fix issues with string overloads
-// TODO: Implement Matcher::match
+// TODO: Handle non-exhaustive pattern in Matcher::match_impl
 // TODO: Rework match to allow for variant and any to be passed
 // TODO: Rework match to allow for tuple to be passed
 // TODO: Remove explicit void return type in takes_args (needed to allow for chaining)
 // TODO: Add 'inline' and 'constexpr' to resolution functions ???
+// TODO: Remove the 'const &' from the type matching
 // TODO: Improve exception messages
 
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
@@ -54,16 +55,16 @@ class MatchResolver {
 };
 
 // class that encapsulates a match call for later calls against many values
-template<class _Tuple>
+template<class... Args>
 class Matcher {
 	private:
-		_Tuple fns;
+		std::tuple<Args...> fns;
 
 		template<class T>
 		void match_impl(T);
 
 	public:
-		Matcher(_Tuple&&);
+		Matcher(std::tuple<Args...>&&);
 
 		template<class T>
 		void operator()(const T&);
@@ -87,7 +88,9 @@ class MatchBuilder {
 		// This syntax is possibly just a temporary measure
 			// though `\` doesn't compile for some reason
 		template <class F>
-		Matcher<std::tuple<Args..., F>> operator||(F&& fn);
+		Matcher<Args..., F> operator||(F&& fn);
+		// This almost fucked me over after I changed Matcher's template from `_Tuple` to `Args...`
+			// I'd accidentally forgot to change the return type from `Matcher<std::tuple<Args..., F>>` to `Matcher<Args..., F>` but it still compiled
 };
 
 struct pattern_error : std::runtime_error {
@@ -97,6 +100,17 @@ struct pattern_error : std::runtime_error {
 // Helper class to prevent impossible errors from stopping compilation
 	// Little cheat to get around the type checker (can replace with 'if constexpr')
 template<bool> struct Invoker;
+template<size_t N, bool... match> struct IndexFinder;
+
+template<size_t N, bool match>
+struct IndexFinder<N, match> {
+	static constexpr size_t value = match ? N : -1;
+};
+
+template <size_t N, bool match, bool... matches>
+struct IndexFinder<N, match, matches...> {
+	static constexpr size_t value = match ? N : IndexFinder<N + 1, matches...>::value;
+};
 
 
 // Interface methods
@@ -104,12 +118,12 @@ MatchBuilder<> match();
 template<class T> MatchResolver<const T&> match(const T&);
 
 
-
 int main() {
 	auto test = std::make_tuple();
 	std::string val = "Hello";
 	const char* str = val.c_str();
 	
+
 	// Testing the value matcher
 	try {
 		match(val)
@@ -128,14 +142,14 @@ int main() {
 	auto almost_match = match()
 		| [](const std::string& name) { std::cout << "Passed Test\n"; }
 		| [](const int& name) { std::cout << "An int\n"; }
-		|| [](const std::string& name) { std::cout << "Failed Test\n"; };
+		| [](const std::string& name) {}
+		|| []() { std::cout << "Failed Test\n"; };
 		// The `\` gave errors oddly
 
-	almost_match(val);		// Should display Passed Test
+	almost_match.match(val);
 
 	std::cin.get();
 }
-
 
 
 /*
@@ -202,7 +216,7 @@ void MatchedContract<T, F>::eval(T val) {
 		Invoker<is_base_case>::invoke(std::move(fn));
 
 	else
-		Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);		// This will always == !is_base_case. However, I still need to do the `takes_args` to prevent the compiler from crashing
+		Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);		// This will always equal `!is_base_case`. However, I still need to do the `takes_args` to prevent the compiler from crashing
 																				// When type checking calls that will never occur (might be able to fix with `if constexpr`)
 }
 
@@ -214,32 +228,37 @@ template<class... Args> MatchBuilder<Args...>::MatchBuilder(std::tuple<Args...>&
 
 // These functions append the new lambda onto the current list (tuple)
 template<class ...Args> template<class F>
-MatchBuilder<Args..., F> MatchBuilder<Args...>::operator|(F && fn) {
+MatchBuilder<Args..., F> MatchBuilder<Args...>::operator|(F&& fn) {
 	return MatchBuilder<Args..., F>(std::tuple_cat(fns, std::make_tuple(std::move(fn))));
 }
 
 // But this one returns the new tuple in a Matcher object instead of a MatchBuilder
 template<class ...Args> template<class F>
-Matcher<std::tuple<Args..., F>> MatchBuilder<Args...>::operator||(F && fn) {
-	return Matcher<std::tuple<Args..., F>>(std::tuple_cat(fns, std::make_tuple(std::move(fn))));
+Matcher<Args..., F> MatchBuilder<Args...>::operator||(F&& fn) {
+	return Matcher<Args..., F>(std::tuple_cat(fns, std::make_tuple(std::move(fn))));
 }
 
 
 /*
  * Matcher specializations
  */
-template<class _Tuple> Matcher<_Tuple>::Matcher(_Tuple&& fns) : fns{ fns } {}
+template<class... Args> Matcher<Args...>::Matcher(std::tuple<Args...>&& fns) : fns{ fns } {}
 
-template<class _Tuple> template<class T>
-void Matcher<_Tuple>::match_impl(T val) {
-	std::cout << "Matcher has been created\n";
+template<class... Args> template<class T>
+void Matcher<Args...>::match_impl(T val) {
+	
+	// Find the location of the first function in `fns` that either takes a `T` or is the base case (returns -1 on non-exhaustive pattern)
+		// Note: There has to be a better way of doing this
+	constexpr size_t index = IndexFinder<0, (takes_args<Args, T>::value || base_case<Args>::value)...>::value;
+	std::cout << "Index: " << index << "\n";
+	std::get<index>(fns)(val);
 }
 
-template<class _Tuple> template<class T>
-void Matcher<_Tuple>::operator()(const T& val) { return match_impl<const T&>(val); }
+template<class... Args> template<class T>
+void Matcher<Args...>::operator()(const T& val) { return match_impl<const T&>(val); }
 
-template<class _Tuple> template<class T>
-void Matcher<_Tuple>::match(const T& val) { return match_impl<const T&>(val); }
+template<class... Args> template<class T>
+void Matcher<Args...>::match(const T& val) { return match_impl<const T&>(val); }
 
 
 /*
@@ -264,4 +283,3 @@ template<> struct Invoker<false> {
 	template <class F, class T>
 	static void invoke(F&& fn, T val) {}
 };
-

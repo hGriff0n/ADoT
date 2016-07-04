@@ -15,16 +15,20 @@
 
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
 
-// Interface Classes
+// SFINAE Classes
 template<class Fn, class... Args>
 struct takes_args : shl::has_interface<Fn, void(Args...)> {};
 
 template<class Fn>
 struct base_case : shl::has_interface<Fn, void()> {};
 
-template <typename T>
-struct UnmatchedContract { virtual void eval(T) = 0; };
 
+// Interface Classes
+
+// class template is necessary as you can't make a function template virtual
+template <typename T> struct UnmatchedContract { virtual void eval(T) = 0; };
+
+// class that represents (and holds) a successful match attempt
 template<class T, class F>
 struct MatchedContract : UnmatchedContract<T>{
 	F fn;
@@ -33,6 +37,7 @@ struct MatchedContract : UnmatchedContract<T>{
 	virtual void eval(T);
 };
 
+// class that handles linear resolution of a direct match call
 template <class T>
 class MatchResolver {
 	private:
@@ -48,35 +53,41 @@ class MatchResolver {
 		MatchResolver&& operator|(F&& fn);
 };
 
-
+// class that encapsulates a match call for later calls against many values
 template<class _Tuple>
-struct Matcher {
-	_Tuple fns;
+class Matcher {
+	private:
+		_Tuple fns;
 
-	template<class T>
-	void match_impl(T);
+		template<class T>
+		void match_impl(T);
 
-	Matcher(_Tuple&&);
+	public:
+		Matcher(_Tuple&&);
 
-	template<class T>
-	void operator()(const T&);
+		template<class T>
+		void operator()(const T&);
 
-	template<class T>
-	void match(const T&);
+		template<class T>
+		void match(const T&);
 };
 
+// class that constructs a Matcher using similar syntax to a MatchResolver
 template <class... Args>
-struct MatchBuilder {
-	std::tuple<Args...> fns;
+class MatchBuilder {
+	private:
+		std::tuple<Args...> fns;
 
-	MatchBuilder(std::tuple<Args...>&&);
+	public:
+		MatchBuilder(std::tuple<Args...>&&);
 
-	template <class F>
-	MatchBuilder<Args..., F> operator|(F&& fn);
+		template <class F>
+		MatchBuilder<Args..., F> operator|(F&& fn);
 
-	// This syntax is just a temporary measure
-	template <class F>
-	Matcher<std::tuple<Args..., F>> operator||(F&& fn);
+		// This syntax is possibly just a temporary measure
+			// though `\` doesn't compile for some reason
+		template <class F>
+		Matcher<std::tuple<Args..., F>> operator||(F&& fn);
 };
 
 struct pattern_error : std::runtime_error {
@@ -93,11 +104,13 @@ MatchBuilder<> match();
 template<class T> MatchResolver<const T&> match(const T&);
 
 
+
 int main() {
 	auto test = std::make_tuple();
 	std::string val = "Hello";
 	const char* str = val.c_str();
 	
+	// Testing the value matcher
 	try {
 		match(val)
 			| [](const std::string& name) { std::cout << "A string\n"; }
@@ -106,15 +119,19 @@ int main() {
 
 	} catch (std::string& e) {
 		std::cout << e;
+
 	} catch (std::exception& e) {
 		std::cout << e.what();
 	}
 
-	auto m = match()
+	// Test the matcher object
+	auto almost_match = match()
 		| [](const std::string& name) { std::cout << "Passed Test\n"; }
 		| [](const int& name) { std::cout << "An int\n"; }
 		|| [](const std::string& name) { std::cout << "Failed Test\n"; };
 		// The `\` gave errors oddly
+
+	almost_match(val);		// Should display Passed Test
 
 	std::cin.get();
 }
@@ -150,6 +167,7 @@ MatchResolver<const std::string&> match(const char* val) {
 template<class T> MatchResolver<T>::MatchResolver(T val) : val{ val }, match{ nullptr } {}
 template<class T> MatchResolver<T>::MatchResolver(MatchResolver<T>&& res) : val{ res.val }, match{ res.match } { res.match = nullptr; }
 template<class T> MatchResolver<T>::~MatchResolver() {
+	// Note: this is why the explicit checks in MatchedContract::eval are necessary to prevent compiler errors (I think)
 	if (match) {
 		match->eval(val);
 		delete match;
@@ -162,17 +180,9 @@ template<class T> MatchResolver<T>::~MatchResolver() {
 
 template<class T> template<class F>
 MatchResolver<T>&& MatchResolver<T>::operator|(F&& fn) {
-	constexpr auto fn_matches = takes_args<F, T>::value;
-	constexpr auto is_base_case = base_case<F>::value;
-
-	//std::cout << (match == nullptr) << " - " << (fn_matches || is_base_case) << "\n";
-
-	if (!match && (fn_matches || is_base_case)) {
-		//Invoker<matches>::invoke(std::move(fn), val);			// Can't replace matches with true as that would cause the compiler to try to type check invalid functions (compilation error)
-
-		delete match;
-		match = new MatchedContract<T, F>{ std::move(fn) };		// type cast from MatchedContract<F>* to UnmatchedContract* exists but is inaccessible, How?
-	}
+	// if match is nullptr (ie. Unmatched) and the function takes T or the function is the base case, mark fn as the chosen function
+	if (!match && (takes_args<F, T>::value || base_case<F>::value))
+		match = new MatchedContract<T, F>{ std::move(fn) };
 
 	return std::move(*this);
 }
@@ -192,7 +202,8 @@ void MatchedContract<T, F>::eval(T val) {
 		Invoker<is_base_case>::invoke(std::move(fn));
 
 	else
-		Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);
+		Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);		// This will always == !is_base_case. However, I still need to do the `takes_args` to prevent the compiler from crashing
+																				// When type checking calls that will never occur (might be able to fix with `if constexpr`)
 }
 
 
@@ -201,11 +212,13 @@ void MatchedContract<T, F>::eval(T val) {
  */
 template<class... Args> MatchBuilder<Args...>::MatchBuilder(std::tuple<Args...>&& fns) : fns{ fns } {}
 
+// These functions append the new lambda onto the current list (tuple)
 template<class ...Args> template<class F>
 MatchBuilder<Args..., F> MatchBuilder<Args...>::operator|(F && fn) {
 	return MatchBuilder<Args..., F>(std::tuple_cat(fns, std::make_tuple(std::move(fn))));
 }
 
+// But this one returns the new tuple in a Matcher object instead of a MatchBuilder
 template<class ...Args> template<class F>
 Matcher<std::tuple<Args..., F>> MatchBuilder<Args...>::operator||(F && fn) {
 	return Matcher<std::tuple<Args..., F>>(std::tuple_cat(fns, std::make_tuple(std::move(fn))));

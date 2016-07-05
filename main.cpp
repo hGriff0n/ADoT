@@ -8,7 +8,6 @@
 // TODO: Fix issues with string overloads
 // TODO: Rework match to allow for variant and any to be passed
 // TODO: Rework match to allow for tuple to be passed
-// TODO: Remove explicit void return type in takes_args (needed to allow for chaining)
 // TODO: Add 'inline' and 'constexpr' to resolution functions ???
 // TODO: Remove the 'const &' from the type matching
 // TODO: Improve exception messages
@@ -17,10 +16,10 @@
 
 // SFINAE Classes
 template<class Fn, class... Args>
-struct takes_args : shl::has_interface<Fn, void(Args...)> {};
+struct takes_args : std::is_same<typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 
 template<class Fn>
-struct base_case : shl::has_interface<Fn, void()> {};
+struct base_case : takes_args<Fn> {};
 
 
 // Interface Classes
@@ -125,10 +124,10 @@ int main() {
 
 	// Testing the value matcher
 	try {
-		match(val)
+		match(3.3)
 			| [](const std::string& name) { std::cout << "A string\n"; }
-			| [](const int& name) { std::cout << "An int\n"; };
-			//| []() { std::cout << "Nothing\n"; };
+			| [](const int& name) { std::cout << "An int\n"; }
+			| []() { std::cout << "Nothing\n"; };
 
 	} catch (std::string& e) {
 		std::cout << e;
@@ -145,7 +144,7 @@ int main() {
 		//|| []() { std::cout << "Failed Test\n"; };
 		// The `\` gave errors oddly
 
-	almost_match.match(3.3);
+	almost_match.match(val);
 
 	std::cin.get();
 }
@@ -244,18 +243,19 @@ Matcher<Args..., F> MatchBuilder<Args...>::operator||(F&& fn) {
 template<class... Args> Matcher<Args...>::Matcher(std::tuple<Args...>&& fns) : fns{ fns } {}
 
 // Helper for Matcher::match_impl that enables better error messages when a non-exhaustive pattern match is attempted
-	// TODO: Move into a better spot
-template<size_t N>
+	// Can clean up definition once `if constexpr` is implemented
+template <size_t N, bool valid_index>
 struct MatchImplHelper {
-	// If the selected index is a valid index into the function tuple, call the function
-	template<class T, class... Args, class=std::enable_if_t<sizeof...(Args) >= N>>
-	static void invoke(std::tuple<Args...>& fns, T val) {
+	template<class T, class _Tuple>
+	static void invoke(_Tuple& fns, T val) {
 		std::get<N>(fns)(val);
 	}
+};
 
-	// Otherwise raise a compiler error
-	template<class T, class... Args>
-	static constexpr void invoke(std::tuple<Args...>& fns, T val) {
+template<size_t N>
+struct MatchImplHelper<N, false> {
+	template<class T, class _Tuple>
+	static void invoke(_Tuple& fns, T val) {
 		static_assert(false, "Non-exhaustive pattern match found");
 	}
 };
@@ -268,7 +268,9 @@ void Matcher<Args...>::match_impl(T val) {
 	constexpr size_t index = IndexFinder<0, (takes_args<Args, T>::value || base_case<Args>::value)...>::value;
 	
 	// Attempt to invoke the correct function (will raise an error if none are selected)
-	MatchImplHelper<index>::invoke(fns, val);
+		// The second template argument is for whether the index is valid for the function tuple
+		// Note: The `>=` is necessary as the compiler treats a `<` as starting a new template
+	MatchImplHelper<index, sizeof...(Args) >= index>::invoke(fns, val);
 }
 
 template<class... Args> template<class T>

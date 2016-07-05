@@ -6,7 +6,6 @@
 #include "has_interface.h"
 
 // TODO: Fix issues with string overloads
-// TODO: Handle non-exhaustive pattern in Matcher::match_impl
 // TODO: Rework match to allow for variant and any to be passed
 // TODO: Rework match to allow for tuple to be passed
 // TODO: Remove explicit void return type in takes_args (needed to allow for chaining)
@@ -142,11 +141,11 @@ int main() {
 	auto almost_match = match()
 		| [](const std::string& name) { std::cout << "Passed Test\n"; }
 		| [](const int& name) { std::cout << "An int\n"; }
-		| [](const std::string& name) {}
-		|| []() { std::cout << "Failed Test\n"; };
+		|| [](const std::string& name) {};
+		//|| []() { std::cout << "Failed Test\n"; };
 		// The `\` gave errors oddly
 
-	almost_match.match(val);
+	almost_match.match(3.3);
 
 	std::cin.get();
 }
@@ -244,14 +243,32 @@ Matcher<Args..., F> MatchBuilder<Args...>::operator||(F&& fn) {
  */
 template<class... Args> Matcher<Args...>::Matcher(std::tuple<Args...>&& fns) : fns{ fns } {}
 
+// Helper for Matcher::match_impl that enables better error messages when a non-exhaustive pattern match is attempted
+	// TODO: Move into a better spot
+template<size_t N>
+struct MatchImplHelper {
+	// If the selected index is a valid index into the function tuple, call the function
+	template<class T, class... Args, class=std::enable_if_t<sizeof...(Args) >= N>>
+	static void invoke(std::tuple<Args...>& fns, T val) {
+		std::get<N>(fns)(val);
+	}
+
+	// Otherwise raise a compiler error
+	template<class T, class... Args>
+	static constexpr void invoke(std::tuple<Args...>& fns, T val) {
+		static_assert(false, "Non-exhaustive pattern match found");
+	}
+};
+
 template<class... Args> template<class T>
 void Matcher<Args...>::match_impl(T val) {
 	
 	// Find the location of the first function in `fns` that either takes a `T` or is the base case (returns -1 on non-exhaustive pattern)
 		// Note: There has to be a better way of doing this
 	constexpr size_t index = IndexFinder<0, (takes_args<Args, T>::value || base_case<Args>::value)...>::value;
-	std::cout << "Index: " << index << "\n";
-	std::get<index>(fns)(val);
+	
+	// Attempt to invoke the correct function (will raise an error if none are selected)
+	MatchImplHelper<index>::invoke(fns, val);
 }
 
 template<class... Args> template<class T>

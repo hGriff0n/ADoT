@@ -5,11 +5,14 @@
 
 #include "has_interface.h"
 
+// TODO: Matcher doesn't handle base case
+// TODO: Split into multiple files
 // TODO: Fix issues with string overloads
 // TODO: Rework match to allow for variant and any to be passed
 // TODO: Rework match to allow for tuple to be passed
 // TODO: Add 'inline' and 'constexpr' to resolution functions ???
 // TODO: Remove the 'const &' from the type matching
+// TODO: Find a way to warn about missing '||'
 // TODO: Improve exception messages
 
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
@@ -23,34 +26,9 @@ struct base_case : takes_args<Fn> {};
 
 
 // Interface Classes
-
-// class template is necessary as you can't make a function template virtual
-template <typename T> struct UnmatchedContract { virtual void eval(T) = 0; };
-
-// class that represents (and holds) a successful match attempt
-template<class T, class F>
-struct MatchedContract : UnmatchedContract<T>{
-	F fn;
-
-	MatchedContract(F&&);
-	virtual void eval(T);
-};
-
-// class that handles linear resolution of a direct match call
-template <class T>
-class MatchResolver {
-	private:
-		T val;
-		UnmatchedContract<T>* match;		// Need the polymorphism cause I don't know the type of F just yet
-
-	public:
-		MatchResolver(T);
-		MatchResolver(MatchResolver&&);
-		~MatchResolver();
-
-		template <class F>
-		MatchResolver&& operator|(F&& fn);
-};
+// forward declaration for class that handles call-site matching
+template <bool, class T, class... Fns>
+class MatchResolver;
 
 // class that encapsulates a match call for later calls against many values
 template<class... Args>
@@ -89,10 +67,44 @@ class MatchBuilder {
 		Matcher<Args..., F> operator||(F&& fn);
 		// This almost fucked me over after I changed Matcher's template from `_Tuple` to `Args...`
 			// I'd accidentally forgot to change the return type from `Matcher<std::tuple<Args..., F>>` to `Matcher<Args..., F>` but it still compiled
+
+		template <bool, class T, class... Fns>
+		friend class MatchResolver;
 };
 
-struct pattern_error : std::runtime_error {
-	pattern_error() : std::runtime_error{ "Non-exhaustive pattern match found!" } {};
+// An unfinished call-site match
+template <bool, class T, class... Fns>
+class MatchResolver {
+	private:
+		T val;
+		std::tuple<Fns...> match;
+
+	public:
+		MatchResolver(T val) : val{ val }, match{ std::make_tuple() } {}
+		MatchResolver(T val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
+
+		template <class F>
+		MatchResolver<false, T, Fns..., F> operator|(F&& fn) {
+			return MatchResolver<false, T, Fns..., F>{ val, std::tuple_cat(match, std::make_tuple(fn)) };
+		}
+
+		// TODO: I need to find a way to warn about missing these
+		template <class F>
+		MatchResolver<true, T, Fns..., F> operator||(F&& fn) {
+			return MatchResolver<true, T, Fns..., F>{ val, std::tuple_cat(match, std::make_tuple(fn)) };
+		}
+};
+
+// A finished call-site match
+template <class T, class... Fns>
+class MatchResolver<true, T, Fns...> {
+	private:
+		T val;
+		Matcher<Fns...> match;
+
+	public:
+		MatchResolver(T val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
+		~MatchResolver() { match(val); }
 };
 
 // Helper class to prevent impossible errors from stopping compilation
@@ -112,8 +124,13 @@ struct IndexFinder<N, match, matches...> {
 
 
 // Interface methods
-MatchBuilder<> match();
-template<class T> MatchResolver<const T&> match(const T&);
+MatchBuilder<> match() {
+	return MatchBuilder<>{ std::make_tuple() };
+}
+
+template<class T> MatchResolver<false, const T&> match(const T& val) {
+	return MatchResolver<false, const T&>{val};
+}
 
 
 int main() {
@@ -124,10 +141,10 @@ int main() {
 
 	// Testing the value matcher
 	try {
-		match(3.3)
+		match(val)
 			| [](const std::string& name) { std::cout << "A string\n"; }
 			| [](const int& name) { std::cout << "An int\n"; }
-			| []() { std::cout << "Nothing\n"; };
+			| [](const float& c) { std::cout << "Nothing\n"; };
 
 	} catch (std::string& e) {
 		std::cout << e;
@@ -140,82 +157,13 @@ int main() {
 	auto almost_match = match()
 		| [](const std::string& name) { std::cout << "Passed Test\n"; }
 		| [](const int& name) { std::cout << "An int\n"; }
-		|| [](const std::string& name) {};
+		|| [](const float& name) { std::cout << "A float\n"; };
 		//|| []() { std::cout << "Failed Test\n"; };
 		// The `\` gave errors oddly
 
-	almost_match.match(val);
+	almost_match.match(3.3f);
 
 	std::cin.get();
-}
-
-
-/*
- * Interface methods
- */
-MatchBuilder<> match() {
-	return MatchBuilder<>{ std::make_tuple() };
-}
-
-template<class T> MatchResolver<const T&> match(const T& val) {
-	return MatchResolver<const T&>{ val };
-}
-
-// This isn't being called
-template <size_t N>
-MatchResolver<const std::string&> match(const char(&val)[N]) {
-	return MatchResolver<const std::string&>{ val };
-}
-
-// Neither is this one
-MatchResolver<const std::string&> match(const char* val) {
-	return MatchResolver<const std::string&>{ val };
-}
-
-
-/*
- * MatchResolver specializations
- */
-template<class T> MatchResolver<T>::MatchResolver(T val) : val{ val }, match{ nullptr } {}
-template<class T> MatchResolver<T>::MatchResolver(MatchResolver<T>&& res) : val{ res.val }, match{ res.match } { res.match = nullptr; }
-template<class T> MatchResolver<T>::~MatchResolver() {
-	// Note: this is why the explicit checks in MatchedContract::eval are necessary to prevent compiler errors (I think)
-	if (match) {
-		match->eval(val);
-		delete match;
-
-	} else {
-		delete match;
-		throw pattern_error{};									// Why is visual studio calling abort when an exception is thrown ???
-	}
-}
-
-template<class T> template<class F>
-MatchResolver<T>&& MatchResolver<T>::operator|(F&& fn) {
-	// if match is nullptr (ie. Unmatched) and the function takes T or the function is the base case, mark fn as the chosen function
-	if (!match && (takes_args<F, T>::value || base_case<F>::value))
-		match = new MatchedContract<T, F>{ std::move(fn) };
-
-	return std::move(*this);
-}
-
-
-/*
- * Contract eval
- */
-template<class T, class F>
-MatchedContract<T, F>::MatchedContract(F&& fn) : fn{ fn } {}
-
-template<class T, class F>
-void MatchedContract<T, F>::eval(T val) {
-	constexpr auto is_base_case = base_case<F>::value;
-
-	if (is_base_case)
-		Invoker<is_base_case>::invoke(std::move(fn));
-
-	else
-		Invoker<takes_args<F, T>::value>::invoke(std::move(fn), val);		// This will always equal `!is_base_case`. However, I still need to do the `takes_args` to prevent the compiler from crashing
-																				// When type checking calls that will never occur (might be able to fix with `if constexpr`)
 }
 
 

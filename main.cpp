@@ -5,7 +5,6 @@
 
 #include "has_interface.h"
 
-// TODO: Matcher doesn't handle base case
 // TODO: Split into multiple files
 // TODO: Fix issues with string overloads
 // TODO: Rework match to allow for variant and any to be passed
@@ -107,9 +106,7 @@ class MatchResolver<true, T, Fns...> {
 		~MatchResolver() { match(val); }
 };
 
-// Helper class to prevent impossible errors from stopping compilation
-	// Little cheat to get around the type checker (can replace with 'if constexpr')
-template<bool> struct Invoker;
+// Find the index of the first bool that is true
 template<size_t N, bool... match> struct IndexFinder;
 
 template<size_t N, bool match>
@@ -140,18 +137,11 @@ int main() {
 	
 
 	// Testing the value matcher
-	try {
-		match(val)
-			| [](const std::string& name) { std::cout << "A string\n"; }
-			| [](const int& name) { std::cout << "An int\n"; }
-			| [](const float& c) { std::cout << "Nothing\n"; };
-
-	} catch (std::string& e) {
-		std::cout << e;
-
-	} catch (std::exception& e) {
-		std::cout << e.what();
-	}
+	match(3.3f)
+		| [](const std::string& name) { std::cout << "A string\n"; }
+		| [](const int& name) { std::cout << "An int\n"; }
+		//| [](const float& c) { std::cout << "Nothing\n"; }
+		|| []() { std::cout << "Base case\n"; };
 
 	// Test the matcher object
 	auto almost_match = match()
@@ -190,19 +180,34 @@ Matcher<Args..., F> MatchBuilder<Args...>::operator||(F&& fn) {
  */
 template<class... Args> Matcher<Args...>::Matcher(std::tuple<Args...>&& fns) : fns{ fns } {}
 
+// Helper for MatchImplHelper to enable dispatching to the base case
+	// Is there a way to combine these two classes
+template<class F>
+struct Invoker {
+	template <class T>
+	static std::enable_if_t<base_case<F>::value> invoke(F&& fn, T val) {
+		fn();
+	}
+
+	template <class T>
+	static std::enable_if_t<!base_case<F>::value> invoke(F&& fn, T val) {
+		fn(val);
+	}
+};
+
 // Helper for Matcher::match_impl that enables better error messages when a non-exhaustive pattern match is attempted
 	// Can clean up definition once `if constexpr` is implemented
 template <size_t N, bool valid_index>
 struct MatchImplHelper {
-	template<class T, class _Tuple>
+	template <class _Tuple, class T>
 	static void invoke(_Tuple& fns, T val) {
-		std::get<N>(fns)(val);
+		Invoker<decltype(std::get<N>(fns))>::invoke(std::get<N>(fns), val);
 	}
 };
 
 template<size_t N>
 struct MatchImplHelper<N, false> {
-	template<class T, class _Tuple>
+	template <class _Tuple, class T>
 	static void invoke(_Tuple& fns, T val) {
 		static_assert(false, "Non-exhaustive pattern match found");
 	}
@@ -226,27 +231,3 @@ void Matcher<Args...>::operator()(const T& val) { return match_impl<const T&>(va
 
 template<class... Args> template<class T>
 void Matcher<Args...>::match(const T& val) { return match_impl<const T&>(val); }
-
-
-/*
-* Invoker specializations
-*/
-template<> struct Invoker<true> {
-	template <class F>
-	static void invoke(F&& fn) {
-		fn();
-	}
-
-	template <class F, class T>
-	static void invoke(F&& fn, T val) {
-		fn(val);
-	}
-};
-
-template<> struct Invoker<false> {
-	template <class F>
-	static void invoke(F&& fn) {}
-
-	template <class F, class T>
-	static void invoke(F&& fn, T val) {}
-};

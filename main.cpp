@@ -6,9 +6,6 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Fix comments in header files
-// TODO: Figure out where to define shl::match()
-// TODO: Fix TODO issues in header files
 // TODO: Fix issues with string overloads
 // TODO: Rework match to allow for variant and any to be passed
 // TODO: Rework match to allow for tuple to be passed
@@ -32,7 +29,7 @@ int main() {
 		| [](const int& name) { std::cout << "An int\n"; }
 		//| [](const float& c) { std::cout << "Nothing\n"; }
 		|| []() { std::cout << "Base case\n"; };
-
+		;
 
 	// Test the matcher object
 	auto almost_match = shl::match()
@@ -44,11 +41,7 @@ int main() {
 
 	almost_match.match(f);
 
+	shl::match(str, almost_match);
+
 	std::cin.get();
-}
-
-
-// Find out what to do with this
-shl::MatchBuilder<> shl::match() {
-	return shl::MatchBuilder<>{ std::make_tuple() };
 }

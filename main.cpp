@@ -7,11 +7,11 @@
 #include "MatchResolver.h"
 
 // TODO: Fix issues with string overloads
-// TODO: Rework match to allow for variant and any to be passed
-// TODO: Rework match to allow for tuple to be passed
-// TODO: Add 'inline' and 'constexpr' to resolution functions ???
-// TODO: Remove the 'const &' from the type matching
 // TODO: Find a way to warn about missing '||'
+// TODO: Remove the 'const &' from the type system
+// TODO: Rework match to allow for variant and any to be passed <- Need to wait for C++17 support
+// TODO: Rework match to allow for tuple to be passed			<- Might need to wait for C++17 (for `std::apply` I think)
+// TODO: MSVC supports fold expressions, can I use this in some way ???
 
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
 

@@ -36,12 +36,12 @@ namespace shl {
 		 *	for handling each case separately without resolution space corruption.
 		 *
 		 *	`invoke` - Handle dispatch to the base case and normal match statements
-		 *	`call` - Handle raising compile-time errors for non-exhaustive patterns
+		 *	`nice_invoke` - Gives nicer compiler errors (prevents std::get<N> from producing any) if a non-exhaustive pattern is found
 		 *
 		 *	Can clean up SFINAE functions when `if constexpr` is implemented
 		 */
-		template <size_t N>
 		struct __MatchHelper {
+			// Handle dispatching to function if the function takes 0 or 1+ arguments
 			template <class F, class T>
 			static std::enable_if_t<base_case<F>::value> invoke(F&& fn, T val) {
 				fn();
@@ -51,17 +51,11 @@ namespace shl {
 			static std::enable_if_t<!base_case<F>::value> invoke(F&& fn, T val) {
 				fn(val);
 			}
-			
-			// Note: The `>=` is necessary as the compiler treats a `<` as starting a new template
-			template <class T, class... Args>
-			static std::enable_if_t<sizeof...(Args) >= N> call(std::tuple<Args...>& fns, T val) {
-				__MatchHelper<N>::invoke(std::get<N>(fns), val);
-			}
 
-			// Note: The `!` is necessary as the compiler treats a `>` as ending a template
-			template <class T, class... Args>
-			static std::enable_if_t<!(sizeof...(Args) >= N)> call(std::tuple<Args...>&, T) {
-				static_assert(false, "Non-exhaustive pattern match found");
+			// I can remove this and the size_t template (see commented code in Matcher), but this makes nicer compiler errors
+			template <size_t N, class T, class... Args>
+			static void nice_invoke(std::tuple<Args...>& fns, T val) {
+				__MatchHelper::invoke(std::get<N>(fns), val);
 			}
 		};
 	}
@@ -80,12 +74,16 @@ namespace shl {
 			void match_impl(T val) {
 				using namespace impl;
 
-				// Find the index of the first function that either takes a `T` or is the base case (returns -1 on non-exhaustive pattern)
+				// Find the index of the first function that either takes a `T` or is the base case
 					// Note: There has to be a better way of doing this
 				constexpr size_t index = __IndexOf<0, (takes_args<Args, T>::value || base_case<Args>::value)...>::value;
 
-				// Attempt to invoke the correctly matched function (will raise a compiler error if none are selected)
-				__MatchHelper<index>::call(fns, val);
+				// Raise a compiler error if no function was found
+				static_assert(index < sizeof...(Args), "Non-exhaustive pattern match found");
+
+				// Call the choosen function
+				__MatchHelper::nice_invoke<index>(fns, val);
+				//__MatchHelper::invoke(std::get<index>(fns), val);				// std::get raises compiler errors in spite of the static_assert
 			}
 
 		public:

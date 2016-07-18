@@ -8,6 +8,34 @@ namespace shl {
 	template<class Fn, class... Args>
 	struct takes_args : std::is_same<typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 
+	// SFINAE traits class to determine matching that accounts for implicit conversions
+	template<class T, class F> struct call_matcher;
+
+	// Note: sizeof...(Fns) == sizeof...(Args). This does get caught by the compiler if instantiated
+	template<class... Fns, class... Args>
+	struct call_matcher<std::tuple<Fns...>, std::tuple<Args...>> {
+		// Can the function be called with the arguments (ie. do the arg types match or can be converted to the function types)
+		static constexpr bool value = sizeof...(Fns) == num_true<(std::is_same<Fns, Args>::value || std::is_convertible<Fns, Args>::value)...>::value;
+
+		// Number of conversions that would be needed to successfully call the function (iff value is true)
+		static constexpr size_t level = sizeof...(Fns) - num_true<std::is_same<Fns, Args>::value...>::value;
+
+		// TODO: Determine whether I need this or not
+		template <size_t curr> static constexpr bool better() { return curr > level; }
+	};
+
+	// Helper class to determine the number of true values in a boolean variadic
+	// TODO: Replace with fold expressions once support is added
+	template <bool b, bool... bools>
+	struct num_true {
+		static constexpr size_t value = b + num_true<bools...>::value;
+	};
+
+	template<bool b> struct num_true<b> {
+		static constexpr size_t value = b;
+	};
+
+	// Class for matching against the base case
 	template<class Fn>
 	struct base_case : takes_args<Fn> {};
 

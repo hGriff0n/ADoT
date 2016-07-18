@@ -32,12 +32,15 @@ Matcher and MatchBuilder - first class matching
 
 an empty call to match creates a builder that can be used to piecewise construct a matcher object
 	the syntax for adding cases to the builder is exactly the same as for the normal match
-TODO: Find a way to finalize the builder
-	overload operator (||, \ ???)
-	fin method (necessitates wrapping in parentheses)
+use operator|| to finalize construction
 the constructed matcher can then be passed around in user code
 	executing match works the same way as normal, but the object/members is not consumed
 	operator() is overloaded for matchers, so they can be chained (not useful yet, but this might be how I can get ADTs to work)
+
+// Actual
+I ended up implementing everything in terms of the Matcher object
+	Match resolution isn't handled through the "|" operator, but in the destructor
+The only syntax change was requiring a "||" for everything so that I can determine that the object/pattern is finished
 
 TODO: Figure out syntax for creating AlgebraicTypes
 TODO: Figure out how to make a match for ADTs

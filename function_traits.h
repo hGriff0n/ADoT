@@ -19,7 +19,7 @@ namespace shl {
 	struct function_traits<R(Args...)> {
 		using return_type = R;
 		using arg_types = std::tuple<Args...>;
-		using __arg_types = std::tuple<Args...>;
+		using __arg_types = std::tuple<Args...>;					// This keeps the "this" type for class methods
 
 		static constexpr size_t arity = sizeof...(Args);
 
@@ -52,7 +52,7 @@ namespace shl {
 		public:
 			using return_type = typename call_type::return_type;
 			using arg_types = typename call_type::arg_types;
-			using __arg_types = typename call_type::__arg_types;		// Keep the this pointer
+			using __arg_types = typename call_type::__arg_types;
 
 			static constexpr size_t arity = call_type::arity - 1;
 

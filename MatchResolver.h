@@ -49,6 +49,6 @@ namespace shl {
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
 	template<class T> constexpr MatchResolver<false, const T&> match(const T& val) {
-		return MatchResolver<false, const T&>{val};
+		return MatchResolver<false, const T&>{ val };
 	}
 }

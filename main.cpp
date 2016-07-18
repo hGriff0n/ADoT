@@ -7,8 +7,8 @@
 #include "MatchResolver.h"
 
 // TODO: Allow convertible cases to be selected
-	// std::is_convertible<From, To>::value		<- Need a way of mapping this
-	// I can fold the result to reduce
+	// Figure out why this isn't working
+	// Find a better way of resolving multiple selections
 // TODO: Allow convertible selection to be changed in client-code
 // TODO: Remove the 'const &' from the type system
 
@@ -30,15 +30,11 @@ int main() {
 	const char* c_str = str.c_str();
 	auto f = 3.3f;
 
-	std::cout <<
-		shl::call_matcher<std::tuple<int>, std::tuple<int, float>>::value << "\n" <<
-		shl::call_matcher<std::tuple<int>, std::tuple<int>>::level << "\n";
-
 	// Should give "A cstring"
-		// Gives non-exhaustive pattern match
-	//shl::match(c_str)
-	//	| [](const std::string& name) { std::cout << "A string\n"; }
-	//	|| [](const char* name) { std::cout << "A cstring\n"; };
+		// Gives "A string"
+	shl::match(c_str)
+		| [](const std::string& name) { std::cout << "A string\n"; }
+		|| [](const char* const& name) { std::cout << "A cstring\n"; };
 
 	// Should give "A string"
 	shl::match(c_str)
@@ -46,16 +42,15 @@ int main() {
 		|| []() { std::cout << "Base case\n"; };
 
 	// Should give "A string"
-		// Gives a memory read exception
-	//shl::match("World!")
-	//	| [](const std::string& name) { std::cout << "A string\n"; }
-	//	|| []() { std::cout << "Base case\n"; };
+	shl::match("World!")
+		| [](const std::string& name) { std::cout << "A string\n"; }
+		|| []() { std::cout << "Base case\n"; };
 
 	// Should give "A literal"
-		// Gives a memory read exception
-	//shl::match("World!")
-	//	| [](const std::string& name) { std::cout << "A string\n"; }
-	//	|| [](const char(&name)[7]) { std::cout << "A literal\n"; };
+		// Gives "A string"
+	shl::match("World!")
+		| [](const std::string& name) { std::cout << "A string\n"; }
+		|| [](const char(&name)[7]) { std::cout << "A literal\n"; };
 
 	std::cin.get();
 }

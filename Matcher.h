@@ -4,26 +4,6 @@
 
 namespace shl {
 
-	// SFINAE traits classes (for matching functions based on arguments)
-	template<class Fn, class... Args>
-	struct takes_args : std::is_same<typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
-
-	// SFINAE traits class to determine matching that accounts for implicit conversions
-	template<class T, class F> struct call_matcher;
-
-	// Note: sizeof...(Fns) == sizeof...(Args). This does get caught by the compiler if instantiated
-	template<class... Fns, class... Args>
-	struct call_matcher<std::tuple<Fns...>, std::tuple<Args...>> {
-		// Can the function be called with the arguments (ie. do the arg types match or can be converted to the function types)
-		static constexpr bool value = sizeof...(Fns) == num_true<(std::is_same<Fns, Args>::value || std::is_convertible<Fns, Args>::value)...>::value;
-
-		// Number of conversions that would be needed to successfully call the function (iff value is true)
-		static constexpr size_t level = sizeof...(Fns) - num_true<std::is_same<Fns, Args>::value...>::value;
-
-		// TODO: Determine whether I need this or not
-		template <size_t curr> static constexpr bool better() { return curr > level; }
-	};
-
 	// Helper class to determine the number of true values in a boolean variadic
 	// TODO: Replace with fold expressions once support is added
 	template <bool b, bool... bools>
@@ -35,9 +15,42 @@ namespace shl {
 		static constexpr size_t value = b;
 	};
 
+	// Impl class to enable safe handling of argument and parameter lists that don't match in arity
+	template<bool, class, class> struct call_matcher_impl;
+	template<class, class> struct call_matcher;
+
+	template<class... Params, class... Args>
+	struct call_matcher_impl<true, std::tuple<Params...>, std::tuple<Args...>> {
+		// Can the function be called with the arguments (ie. do the arg types match or can be converted to the function types)
+			// Note: The ordering of Param and Arg is important in std::is_convertible<From, To>
+		static constexpr bool value = sizeof...(Params) == num_true<(std::is_same<Params, Args>::value || std::is_convertible<Args, Params>::value)...>::value;
+
+		// Number of conversions that would be needed to successfully call the function (iff value is true)
+		static constexpr size_t level = sizeof...(Params)-num_true<std::is_same<Params, Args>::value...>::value;
+
+		// TODO: Determine whether I need this or not
+		template <size_t curr> static constexpr bool better() { return curr > level; }
+	};
+
+	template<class... Params, class... Args>
+	struct call_matcher_impl<false, std::tuple<Params...>, std::tuple<Args...>> {
+		static constexpr bool value = false;
+		static constexpr size_t level = -1;
+		template <size_t curr> static constexpr bool better() { return false; }
+	};
+
+	// SFINAE traits class to determine matching that accounts for implicit conversions
+	template<class... Params, class... Args>
+	struct call_matcher<std::tuple<Params...>, std::tuple<Args...>> : call_matcher_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
+
+
+	// SFINAE traits classes (for matching functions based on arguments)
+	template<class Fn, class... Args>
+	struct takes_args : call_matcher<typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+
 	// Class for matching against the base case
 	template<class Fn>
-	struct base_case : takes_args<Fn> {};
+	struct base_case : std::is_same<typename shl::function_traits<Fn>::arg_types, std::tuple<>> {};
 
 
 	namespace impl {

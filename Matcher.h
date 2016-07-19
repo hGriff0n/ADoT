@@ -5,10 +5,9 @@
 namespace shl {
 
 	// Helper class to determine the number of true values in a boolean variadic
-	// TODO: Replace with fold expressions once support is added
-	template <bool b, bool... bools>
+	template <bool b, bool... bs>
 	struct num_true {
-		static constexpr size_t value = b + num_true<bools...>::value;
+		static constexpr size_t value = b + num_true<bs...>::value;
 	};
 
 	template<bool b> struct num_true<b> {
@@ -25,8 +24,8 @@ namespace shl {
 			// Note: The ordering of Param and Arg is important in std::is_convertible<From, To>
 		static constexpr bool value = sizeof...(Params) == num_true<(std::is_same<Params, Args>::value || std::is_convertible<Args, Params>::value)...>::value;
 
-		// Number of conversions that would be needed to successfully call the function (iff value is true)
-		static constexpr size_t level = sizeof...(Params)-num_true<std::is_same<Params, Args>::value...>::value;
+		// Number of conversions that would be needed to successfully call the function (min is the best match)
+		static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<Params, Args>::value...>::value : -1;
 
 		// TODO: Determine whether I need this or not
 		template <size_t curr> static constexpr bool better() { return curr > level; }
@@ -35,7 +34,7 @@ namespace shl {
 	template<class... Params, class... Args>
 	struct call_matcher_impl<false, std::tuple<Params...>, std::tuple<Args...>> {
 		static constexpr bool value = false;
-		static constexpr size_t level = -1;
+		static constexpr size_t level = -1;		// A level of 0 indicates a perfect match
 		template <size_t curr> static constexpr bool better() { return false; }
 	};
 
@@ -44,11 +43,11 @@ namespace shl {
 	struct call_matcher<std::tuple<Params...>, std::tuple<Args...>> : call_matcher_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
 
 
-	// SFINAE traits classes (for matching functions based on arguments)
+	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
 	struct takes_args : call_matcher<typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 
-	// Class for matching against the base case
+	// Simple wrapper that recognizes the base case function
 	template<class Fn>
 	struct base_case : std::is_same<typename shl::function_traits<Fn>::arg_types, std::tuple<>> {};
 
@@ -59,15 +58,15 @@ namespace shl {
 		 * Given a boolean sequence, find the location of the first `true`
 		 *	Is there a way to do this with constexpr ???
 		 */
-		template <size_t N, bool match, bool... matches>
+		template <class T, T val, size_t N, T match, T... matches>
 		struct __IndexOf {
-			static constexpr size_t value = match ? N : __IndexOf<N + 1, matches...>::value;
+			static constexpr size_t value = (match == val) ? N : __IndexOf<T, val, N + 1, matches...>::value;
 		};
 
 		// The list has been exhuasted
-		template<size_t N, bool match>
-		struct __IndexOf<N, match> {
-			static constexpr size_t value = match ? N : -1;
+		template<class T, T val, size_t N, bool match >
+		struct __IndexOf<T, val, N, match> {
+			static constexpr size_t value = (match == val) ? N : -1;
 		};
 
 
@@ -98,6 +97,27 @@ namespace shl {
 			static void nice_invoke(std::tuple<Args...>& fns, T val) {
 				__MatchHelper::invoke(std::get<N>(fns), val);
 			}
+
+		};
+
+		/*
+		 */
+		template<class T>
+		struct __Control {
+			static constexpr T unless(T a, T b, T c) { return a == b ? c : a; }
+			static constexpr T ifneq(T a, T b, T c, T d) { return a != b ? c : d; }
+		};
+
+		/*
+		*/
+		template<size_t a, size_t b, size_t... ts>
+		struct __Min {
+			static constexpr size_t value = a < b ? __Min<a, ts...>::value : __Min<b, ts...>::value;
+		};
+
+		template<size_t a, size_t b>
+		struct __Min<a, b> {
+			static constexpr size_t value = a < b ? a : b;
 		};
 	}
 
@@ -106,21 +126,23 @@ namespace shl {
 	 *	Matcher doesn't destroy it's function list when matching against a passed value allowing it to be reused
 	 *	multiple times if desired without errors.
 	 */
-	template <class... Args>
+	template <class... Fns>
 	class Matcher {
 		private:
-			std::tuple<Args...> fns;
+			std::tuple<Fns...> fns;
 
 			template<class T>
 			void match_impl(T val) {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
-					// Note: There has to be a better way of doing this
-				constexpr size_t index = __IndexOf<0, (takes_args<Args, T>::value || base_case<Args>::value)...>::value;
+				constexpr auto min = __Min<takes_args<Fns, T>::level...>::value;
+				constexpr auto index = __Control<size_t>::ifneq(min, -1,
+					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,					// Take the best match if one exists
+					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);						// Otherwise take the base case
 
 				// Raise a compiler error if no function was found
-				static_assert(index < sizeof...(Args), "Non-exhaustive pattern match found");
+				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");
 
 				// Call the choosen function
 				__MatchHelper::nice_invoke<index>(fns, val);
@@ -128,7 +150,7 @@ namespace shl {
 			}
 
 		public:
-			Matcher(std::tuple<Args...>&& fns) : fns{ fns } {}
+			Matcher(std::tuple<Fns...>&& fns) : fns{ fns } {}
 
 			template<class T> void operator()(const T& val) { return match_impl<const T&>(val); }
 

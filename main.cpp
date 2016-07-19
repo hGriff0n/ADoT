@@ -7,11 +7,14 @@
 #include "MatchResolver.h"
 
 // TODO: Allow convertible cases to be selected
-	// Figure out why this isn't working
+	// Implement "Better Match" resolution
+		// Implement __UnlessOr and __Min
 	// Find a better way of resolving multiple selections
 // TODO: Allow convertible selection to be changed in client-code
+// TODO: Improve utility of takes_args and base_case (add callable blocking, etc.)
 // TODO: Remove the 'const &' from the type system
 
+// TODO: Replace num_true with fold expressions once support is added
 // TODO: Improve function_traits and has_interface to handle generic lambdas/etc
 	// Note: I don't need has_interface in it's current iteration
 // TODO: Figure out how to handle non-lambdas
@@ -31,7 +34,6 @@ int main() {
 	auto f = 3.3f;
 
 	// Should give "A cstring"
-		// Gives "A string"
 	shl::match(c_str)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| [](const char* const& name) { std::cout << "A cstring\n"; };
@@ -48,9 +50,14 @@ int main() {
 
 	// Should give "A literal"
 		// Gives "A string"
-	shl::match("World!")
+	//shl::match("World!")
+	//	| [](const std::string& name) { std::cout << "A string\n"; }
+	//	|| [](const char(&name)[7]) { std::cout << "A literal\n"; };
+
+	// Should give "Base case"
+	shl::match(f)
 		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| [](const char(&name)[7]) { std::cout << "A literal\n"; };
+		|| []() { std::cout << "Base case\n"; };
 
 	std::cin.get();
 }

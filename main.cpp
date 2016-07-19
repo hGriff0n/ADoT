@@ -6,24 +6,25 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Allow convertible cases to be selected
-	// Implement "Better Match" resolution
-		// Implement __UnlessOr and __Min
-	// Find a better way of resolving multiple selections
+// TODO: Find a better way of resolving multiple selections (current way doesn't ape C++ function resolution)
 // TODO: Allow convertible selection to be changed in client-code
-// TODO: Improve utility of takes_args and base_case (add callable blocking, etc.)
+// TODO: Improve utility of takes_args and base_case (add callable filtering, etc.)
+	// There's a problem with constructing the MatchResolver for testing (no constructor found)
 // TODO: Remove the 'const &' from the type system
+// TODO: Get all string cases to work (I think there's a compiler/std bug though)
 
+// TODO: Improve implementation and organization
+// TODO: Improve __IndexOf with template<auto> once support is added
 // TODO: Replace num_true with fold expressions once support is added
+// TODO: Rework match to work for variant and any once support is added
+// TODO: Rework match to work for tuples (I think I need to wait for `std::apply`)
 // TODO: Improve function_traits and has_interface to handle generic lambdas/etc
-	// Note: I don't need has_interface in it's current iteration
 // TODO: Figure out how to handle non-lambdas
 // TODO: Work on actual ADT syntax
 // TODO: Find a way to warn about missing '||'			<- Not possible AFAIK
 // TODO: Find a way to remove the need for '||' syntax	<- Not possible AFAIK
-// TODO: Rework match to allow for variant and any to be passed <- Need to wait for C++17 support
-// TODO: Rework match to allow for tuple to be passed			<- Might need to wait for C++17 (for `std::apply` I think)
 
+// TODO: Figure out how to turn this into a benchmarking practice
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
 
 
@@ -49,10 +50,11 @@ int main() {
 		|| []() { std::cout << "Base case\n"; };
 
 	// Should give "A literal"
-		// Gives "A string"
+		// Crashes compiler trying to call the second function
 	//shl::match("World!")
 	//	| [](const std::string& name) { std::cout << "A string\n"; }
-	//	|| [](const char(&name)[7]) { std::cout << "A literal\n"; };
+	//	|| [](const char* name) { std::cout << "A literal\n"; };			// Yet this match isn't selected !
+	  //|| [](const char (&name)[7]) { std::cout << "A literal\n"; };		<- This crashes the compiler because "can't convert from `const char*` to `const char (&)[7]`
 
 	// Should give "Base case"
 	shl::match(f)

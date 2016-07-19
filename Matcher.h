@@ -1,6 +1,7 @@
 #pragma once
 
-#include "function_traits.h"
+//#include "function_traits.h"
+#include "has_interface.h"
 
 namespace shl {
 
@@ -22,13 +23,10 @@ namespace shl {
 	struct call_matcher_impl<true, std::tuple<Params...>, std::tuple<Args...>> {
 		// Can the function be called with the arguments (ie. do the arg types match or can be converted to the function types)
 			// Note: The ordering of Param and Arg is important in std::is_convertible<From, To>
-		static constexpr bool value = sizeof...(Params) == num_true<(std::is_same<Params, Args>::value || std::is_convertible<Args, Params>::value)...>::value;
+		static constexpr bool value = sizeof...(Params) == num_true<std::is_convertible<Args, Params>::value...>::value;
 
 		// Number of conversions that would be needed to successfully call the function (min is the best match)
 		static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<Params, Args>::value...>::value : -1;
-
-		// TODO: Determine whether I need this or not
-		template <size_t curr> static constexpr bool better() { return curr > level; }
 	};
 
 	template<class... Params, class... Args>
@@ -45,7 +43,7 @@ namespace shl {
 
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : call_matcher<typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+	struct takes_args : call_matcher<std::enable_if_t<shl::is_callable<Fn>::value, typename shl::function_traits<Fn>::arg_types>, std::tuple<Args...>> {};
 
 	// Simple wrapper that recognizes the base case function
 	template<class Fn>
@@ -55,7 +53,7 @@ namespace shl {
 	namespace impl {
 
 		/*
-		 * Given a boolean sequence, find the location of the first `true`
+		 * Given a pack sequence, find the location of the first `val`
 		 *	Is there a way to do this with constexpr ???
 		 */
 		template <class T, T val, size_t N, T match, T... matches>
@@ -101,22 +99,23 @@ namespace shl {
 		};
 
 		/*
+		 * Struct that provides various compile time control structures
 		 */
 		template<class T>
 		struct __Control {
 			static constexpr T unless(T a, T b, T c) { return a == b ? c : a; }
 			static constexpr T ifneq(T a, T b, T c, T d) { return a != b ? c : d; }
+			static constexpr T ifelse(bool s, T a, T b) { return s ? a : b; }
 		};
 
 		/*
-		*/
-		template<size_t a, size_t b, size_t... ts>
-		struct __Min {
+		 * Struct to find the minimum of a template pack at compile time
+		 */
+		template<size_t a, size_t b, size_t... ts> struct __Min {
 			static constexpr size_t value = a < b ? __Min<a, ts...>::value : __Min<b, ts...>::value;
 		};
 
-		template<size_t a, size_t b>
-		struct __Min<a, b> {
+		template<size_t a, size_t b> struct __Min<a, b> {
 			static constexpr size_t value = a < b ? a : b;
 		};
 	}
@@ -136,8 +135,8 @@ namespace shl {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
-				constexpr auto min = __Min<takes_args<Fns, T>::level...>::value;
-				constexpr auto index = __Control<size_t>::ifneq(min, -1,
+				constexpr auto min = __Min<takes_args<Fns, T>::level...>::value;					// Find the minimum number of conversions
+				constexpr auto index = __Control<size_t>::ifelse(min != -1,
 					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,					// Take the best match if one exists
 					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);						// Otherwise take the base case
 

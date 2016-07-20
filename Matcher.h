@@ -42,14 +42,14 @@ namespace shl {
 
 
 	// Impl class to enable safe handling of types that aren't callable
-	template<bool, class Fn, class...Args>
+	template<bool, class Fn, class... Args>
 	struct takes_args_impl : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 	template<class Fn, class... Args>
 	struct takes_args_impl<false, Fn, Args...> : call_matcher_impl<false, Fn, Args...> {};
 
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : takes_args_impl<shl::is_callable<Fn>::value, typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+	struct takes_args : takes_args_impl<is_callable<Fn>::value, Fn, Args...> {};
 
 
 	// Impl class to enable safe handling of types that aren't callable

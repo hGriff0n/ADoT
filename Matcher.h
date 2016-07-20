@@ -55,7 +55,7 @@ namespace shl {
 
 	// Adding callable protection to base_case caused the problem
 	template<class Fn>
-	struct base_case : base_case_impl<is_callable<std::decay_t<Fn>>::value, Fn> {};
+	struct base_case : base_case_impl<is_callable<Fn>::value, Fn> {};
 
 	// Add in callable support to base_case and takes_args
 

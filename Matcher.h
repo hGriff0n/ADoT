@@ -55,7 +55,7 @@ namespace shl {
 
 	// Adding callable protection to base_case caused the problem
 	template<class Fn>
-	struct base_case : base_case_impl<is_callable<Fn>::value, Fn> {};
+	struct base_case : base_case_impl<is_callable<std::decay_t<Fn>>::value, Fn> {};
 
 	// Add in callable support to base_case and takes_args
 
@@ -149,13 +149,6 @@ namespace shl {
 				constexpr auto index = __Control<size_t>::ifelse(min != -1,
 					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,					// Take the best match if one exists
 					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);						// Otherwise take the base case
-
-				static_assert(is_callable<decltype(std::get<0>(fns))>::value, "call<0>");				// get<0> isn't callable
-				static_assert(is_callable<decltype(std::get<1>(fns))>::value, "call<1>");				// Neither is get<1>			<- How ???
-																												// And how is index != -1 ???
-
-				static_assert(!base_case<decltype(std::get<0>(fns))>::value, "get<0>");					// get<0> is not a base_case
-				static_assert(base_case<decltype(std::get<1>(fns))>::value, "get<1>");					// get<1> is a base_case (This is false)
 
 				// Raise a compiler error if no function was found
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");

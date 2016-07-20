@@ -6,21 +6,29 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Find a better way of resolving multiple selections (current way doesn't ape C++ function resolution)
-// TODO: Allow convertible selection to be changed in client-code
-// TODO: Improve utility of takes_args and base_case (add callable filtering, etc.)
-	// There's a problem with constructing the MatchResolver for testing (no constructor found)
-// TODO: Remove the 'const &' from the type system
+// TODO: Remove the `const&` from the template system
 // TODO: Get all string cases to work (I think there's a compiler/std bug though)
+// TODO: Get match selection to better follow C++ function resolution (ie. when level(a) == level(b))
 
 // TODO: Improve implementation and organization
+	// Extract metastructs to a separate file
+// TODO: Improve function_traits and has_interface to handle generic lambdas/etc
+// TODO: Figure out how to handle non-lambdas
+	// Would need to add in extra templates for calling
+	// Can't convert from `initializer_list` to `MatchResolver<...>` (How is this even happening?)
+// TODO: Add the ability to "return" (get a value) from match
+	// Add in `can_produce` struct from the old stash
+	// Full support will likely require `std::any`
+	// Intermediate support can rely on explicitly specifying the template parameters
+		// void would be the default, but i don't know how I would change over
+// TODO: Work on actual ADT syntax
+// TODO: Allow match selection behavior to be changed from client-code
+
 // TODO: Improve __IndexOf with template<auto> once support is added
+// TODO: Replace __IndexOf and __Min with constexpr once support is added (iterating over initalizer_list)
 // TODO: Replace num_true with fold expressions once support is added
 // TODO: Rework match to work for variant and any once support is added
 // TODO: Rework match to work for tuples (I think I need to wait for `std::apply`)
-// TODO: Improve function_traits and has_interface to handle generic lambdas/etc
-// TODO: Figure out how to handle non-lambdas
-// TODO: Work on actual ADT syntax
 // TODO: Find a way to warn about missing '||'			<- Not possible AFAIK
 // TODO: Find a way to remove the need for '||' syntax	<- Not possible AFAIK
 

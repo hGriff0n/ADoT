@@ -64,6 +64,18 @@ namespace shl {
 	struct base_case : base_case_impl<is_callable<Fn>::value, Fn> {};
 
 
+	// Impl class to enable handling of non-function types 
+	template<bool, class Fn, class Ret>
+	struct can_produce_impl : std::is_convertible<typename shl::function_traits<Fn>::ret_type, Ret> {};
+
+	template<class Arg, class Ret>
+	struct can_produce_impl<false, Arg, Ret> : std::is_convertible<Arg, Ret> {};
+
+	// Simple wrapper to test whether the object can produce a given type 
+	template<class Fn, class Ret>
+	struct can_produce : can_produce_impl<shl::is_callable<Fn>::value, Fn, Ret> {};
+
+
 	namespace impl {
 
 		/*

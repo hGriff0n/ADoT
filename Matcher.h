@@ -15,6 +15,7 @@ namespace shl {
 		static constexpr size_t value = b;
 	};
 
+
 	// Impl class to enable safe handling of argument and parameter lists that don't match in arity
 	template<bool, class, class> struct call_matcher_impl;
 	template<class, class> struct call_matcher;
@@ -33,7 +34,6 @@ namespace shl {
 	struct call_matcher_impl<false, std::tuple<Params...>, std::tuple<Args...>> {
 		static constexpr bool value = false;
 		static constexpr size_t level = -1;		// A level of 0 indicates a perfect match
-		template <size_t curr> static constexpr bool better() { return false; }
 	};
 
 	// SFINAE traits class to determine matching that accounts for implicit conversions
@@ -41,13 +41,27 @@ namespace shl {
 	struct call_matcher<std::tuple<Params...>, std::tuple<Args...>> : call_matcher_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
 
 
+	// Impl class to enable safe handling of types that aren't callable
+	template<bool, class Fn, class... Args>
+	struct takes_args_impl : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+	template<class Fn, class... Args>
+	struct takes_args_impl<false, Fn, Args...> : call_matcher_impl<false, Fn, Args...> {};
+
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : call_matcher<std::enable_if_t<shl::is_callable<Fn>::value, typename shl::function_traits<Fn>::arg_types>, std::tuple<Args...>> {};
+	struct takes_args : takes_args_impl<is_callable<Fn>::value, Fn, Args...> {};
+
+
+	// Impl class to enable safe handling of types that aren't callable
+	template<bool, class Fn>
+	struct base_case_impl {
+		static constexpr bool value = shl::function_traits<Fn>::arity == 0;
+	};
+	template<class Fn> struct base_case_impl<false, Fn> : std::false_type {};
 
 	// Simple wrapper that recognizes the base case function
 	template<class Fn>
-	struct base_case : std::is_same<typename shl::function_traits<Fn>::arg_types, std::tuple<>> {};
+	struct base_case : base_case_impl<is_callable<Fn>::value, Fn> {};
 
 
 	namespace impl {
@@ -62,7 +76,7 @@ namespace shl {
 		};
 
 		// The list has been exhuasted
-		template<class T, T val, size_t N, bool match >
+		template<class T, T val, size_t N, T match >
 		struct __IndexOf<T, val, N, match> {
 			static constexpr size_t value = (match == val) ? N : -1;
 		};

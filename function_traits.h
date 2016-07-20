@@ -7,7 +7,7 @@ namespace shl {
 	/*
 	 * type_traits struct for functions and function objects
 	 */
-	template <class F>
+	template <class Callable>
 	struct function_traits;
 
 	// Match function pointer

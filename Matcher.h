@@ -15,6 +15,7 @@ namespace shl {
 		static constexpr size_t value = b;
 	};
 
+
 	// Impl class to enable safe handling of argument and parameter lists that don't match in arity
 	template<bool, class, class> struct call_matcher_impl;
 	template<class, class> struct call_matcher;
@@ -40,24 +41,27 @@ namespace shl {
 	struct call_matcher<std::tuple<Params...>, std::tuple<Args...>> : call_matcher_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
 
 
+	// Impl class to enable safe handling of types that aren't callable
+	template<bool, class Fn, class...Args>
+	struct takes_args_impl : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+	template<class Fn, class... Args>
+	struct takes_args_impl<false, Fn, Args...> : call_matcher_impl<false, Fn, Args...> {};
+
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : call_matcher<std::enable_if_t<shl::is_callable<Fn>::value, typename shl::function_traits<Fn>::arg_types>, std::tuple<Args...>> {};
+	struct takes_args : takes_args_impl<shl::is_callable<Fn>::value, typename shl::function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 
-	// Simple wrapper that recognizes the base case function
+
+	// Impl class to enable safe handling of types that aren't callable
 	template<bool, class Fn>
 	struct base_case_impl {
 		static constexpr bool value = shl::function_traits<Fn>::arity == 0;
 	};
+	template<class Fn> struct base_case_impl<false, Fn> : std::false_type {};
 
-	template<class Fn>
-	struct base_case_impl<false, Fn> : std::false_type {};
-
-	// Adding callable protection to base_case caused the problem
+	// Simple wrapper that recognizes the base case function
 	template<class Fn>
 	struct base_case : base_case_impl<is_callable<Fn>::value, Fn> {};
-
-	// Add in callable support to base_case and takes_args
 
 
 	namespace impl {

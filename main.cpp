@@ -35,19 +35,19 @@ int main() {
 	auto f = 3.3f;
 
 	// Should give "A cstring"
-	shl::match(c_str)
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| [](const char* const& name) { std::cout << "A cstring\n"; };
+	//shl::match(c_str)
+	//	| [](const std::string& name) { std::cout << "A string\n"; }
+	//	|| [](const char* const& name) { std::cout << "A cstring\n"; };
 
 	// Should give "A string"
-	shl::match(c_str)
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| []() { std::cout << "Base case\n"; };
+	//shl::match(c_str)
+	//	| [](const std::string& name) { std::cout << "A string\n"; }
+	//	|| []() { std::cout << "Base case\n"; };
 
 	// Should give "A string"
-	shl::match("World!")
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| []() { std::cout << "Base case\n"; };
+	//shl::match("World!")
+	//	| [](const std::string& name) { std::cout << "A string\n"; }
+	//	|| []() { std::cout << "Base case\n"; };
 
 	// Should give "A literal"
 		// Crashes compiler trying to call the second function
@@ -57,9 +57,12 @@ int main() {
 	  //|| [](const char (&name)[7]) { std::cout << "A literal\n"; };		<- This crashes the compiler because "can't convert from `const char*` to `const char (&)[7]`
 
 	// Should give "Base case"
-	shl::match(f)
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| []() { std::cout << "Base case\n"; };
+	//shl::match(f)
+	//	| [](const std::string& name) { std::cout << "A string\n"; }
+	//	|| []() { std::cout << "Base case\n"; };
+
+	auto l = []() {};
+	std::cout << shl::is_callable<decltype(l)>::value;
 
 	std::cin.get();
 }

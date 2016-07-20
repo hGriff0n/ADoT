@@ -33,7 +33,6 @@ namespace shl {
 	struct call_matcher_impl<false, std::tuple<Params...>, std::tuple<Args...>> {
 		static constexpr bool value = false;
 		static constexpr size_t level = -1;		// A level of 0 indicates a perfect match
-		template <size_t curr> static constexpr bool better() { return false; }
 	};
 
 	// SFINAE traits class to determine matching that accounts for implicit conversions
@@ -46,8 +45,19 @@ namespace shl {
 	struct takes_args : call_matcher<std::enable_if_t<shl::is_callable<Fn>::value, typename shl::function_traits<Fn>::arg_types>, std::tuple<Args...>> {};
 
 	// Simple wrapper that recognizes the base case function
+	template<bool, class Fn>
+	struct base_case_impl {
+		static constexpr bool value = shl::function_traits<Fn>::arity == 0;
+	};
+
 	template<class Fn>
-	struct base_case : std::is_same<typename shl::function_traits<Fn>::arg_types, std::tuple<>> {};
+	struct base_case_impl<false, Fn> : std::false_type {};
+
+	// Adding callable protection to base_case caused the problem
+	template<class Fn>
+	struct base_case : base_case_impl<is_callable<Fn>::value, Fn> {};
+
+	// Add in callable support to base_case and takes_args
 
 
 	namespace impl {
@@ -62,7 +72,7 @@ namespace shl {
 		};
 
 		// The list has been exhuasted
-		template<class T, T val, size_t N, bool match >
+		template<class T, T val, size_t N, T match >
 		struct __IndexOf<T, val, N, match> {
 			static constexpr size_t value = (match == val) ? N : -1;
 		};
@@ -139,6 +149,13 @@ namespace shl {
 				constexpr auto index = __Control<size_t>::ifelse(min != -1,
 					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,					// Take the best match if one exists
 					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);						// Otherwise take the base case
+
+				static_assert(is_callable<decltype(std::get<0>(fns))>::value, "call<0>");				// get<0> isn't callable
+				static_assert(is_callable<decltype(std::get<1>(fns))>::value, "call<1>");				// Neither is get<1>			<- How ???
+																												// And how is index != -1 ???
+
+				static_assert(!base_case<decltype(std::get<0>(fns))>::value, "get<0>");					// get<0> is not a base_case
+				static_assert(base_case<decltype(std::get<1>(fns))>::value, "get<1>");					// get<1> is a base_case (This is false)
 
 				// Raise a compiler error if no function was found
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");

@@ -1,80 +1,8 @@
 #pragma once
 
-#include "has_interface.h"
+#include "meta.h"
 
 namespace shl {
-
-	// Helper class to determine the number of true values in a boolean variadic
-	template <bool b, bool... bs>
-	struct num_true {
-		static constexpr size_t value = b + num_true<bs...>::value;
-	};
-
-	template<bool b> struct num_true<b> {
-		static constexpr size_t value = b;
-	};
-
-
-	// Impl class to enable safe handling of argument and parameter lists that don't match in arity
-	template<bool, class, class> struct call_matcher_impl;
-	template<class, class> struct call_matcher;
-
-	template<class... Params, class... Args>
-	struct call_matcher_impl<true, std::tuple<Params...>, std::tuple<Args...>> {
-		// Can the function be called with the arguments (ie. do the arg types match or can be converted to the function types)
-			// Note: The ordering of Param and Arg is important in std::is_convertible<From, To>
-		static constexpr bool value = sizeof...(Params) == num_true<std::is_convertible<Args, Params>::value...>::value;
-
-		// Number of conversions that would be needed to successfully call the function (min is the best match)
-		static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<Params, Args>::value...>::value : -1;
-	};
-
-	template<class... Params, class... Args>
-	struct call_matcher_impl<false, std::tuple<Params...>, std::tuple<Args...>> {
-		static constexpr bool value = false;
-		static constexpr size_t level = -1;		// A level of 0 indicates a perfect match
-	};
-
-	// SFINAE traits class to determine matching that accounts for implicit conversions
-	template<class... Params, class... Args>
-	struct call_matcher<std::tuple<Params...>, std::tuple<Args...>> : call_matcher_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
-
-
-	// Impl class to enable safe handling of types that aren't callable
-	template<bool, class Fn, class... Args>
-	struct takes_args_impl : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
-	template<class Fn, class... Args>
-	struct takes_args_impl<false, Fn, Args...> : call_matcher_impl<false, Fn, Args...> {};
-
-	// SFINAE wrapper that extracts the function arg types for call_matcher
-	template<class Fn, class... Args>
-	struct takes_args : takes_args_impl<is_callable<Fn>::value, Fn, Args...> {};
-
-
-	// Impl class to enable safe handling of types that aren't callable
-	template<bool, class Fn>
-	struct base_case_impl {
-		static constexpr bool value = shl::function_traits<Fn>::arity == 0;
-	};
-	template<class Fn> struct base_case_impl<false, Fn> : std::false_type {};
-
-	// Simple wrapper that recognizes the base case function
-	template<class Fn>
-	struct base_case : base_case_impl<is_callable<Fn>::value, Fn> {};
-
-
-	// Impl class to enable handling of non-function types 
-	template<bool, class Fn, class Ret>
-	struct can_produce_impl : std::is_convertible<typename shl::function_traits<Fn>::ret_type, Ret> {};
-
-	template<class Arg, class Ret>
-	struct can_produce_impl<false, Arg, Ret> : std::is_convertible<Arg, Ret> {};
-
-	// Simple wrapper to test whether the object can produce a given type 
-	template<class Fn, class Ret>
-	struct can_produce : can_produce_impl<shl::is_callable<Fn>::value, Fn, Ret> {};
-
-
 	namespace impl {
 
 		/*
@@ -118,7 +46,7 @@ namespace shl {
 			// I can remove this and the size_t template (see commented code in Matcher), but this makes nicer compiler errors
 			template <size_t N, class T, class... Args>
 			static void nice_invoke(std::tuple<Args...>& fns, T val) {
-				__MatchHelper::invoke(std::get<N>(fns), val);
+				invoke(std::get<N>(fns), val);
 			}
 
 		};

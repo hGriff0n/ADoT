@@ -6,27 +6,28 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Decide on the performance of the second example (highlights the `const&` issue
+// TODO: Decide on the result of the second example (highlights the `const&` issue)
 	// takes_args apparently needs the `const&` to perform correctly with some conditions
 // TODO: Switch over to using perfect-forwarding (`const&` -> `&&`)
 // TODO: Figure out how whether MatchBuilder's match will cause compiler issues
 // TODO: Get all string cases to work (I think there's a compiler/std bug though)
 // TODO: Get match selection to better follow C++ function resolution (ie. when level(a) == level(b))
+	// I'll probably need to add in a "meta" way of determining better
 
 // TODO: Improve implementation and organization
-	// Extract metastructs to a separate file
 // TODO: Improve function_traits and has_interface to handle generic lambdas/etc
 // TODO: Figure out how to handle non-lambdas
-	// Would need to add in extra templates for calling
 	// Can't convert from `initializer_list` to `MatchResolver<...>` (How is this even happening?)
+	// Would need to add in extra templates for calling
 // TODO: Add the ability to "return" (get a value) from match
 	// Add in `can_produce` struct from the old stash
 	// Full support will likely require `std::any`
 	// Intermediate support can rely on explicitly specifying the template parameters
 		// void would be the default, but i don't know how I would change over
 // TODO: Work on actual ADT syntax
-// TODO: Allow match selection behavior to be changed from client-code
 
+// TODO: Figure out if it would be possible and beneficial to add match resolution tweaking from client code
+	// If I add in the "meta"-better struct, then I can add it as a parameter
 // TODO: Improve __IndexOf with template<auto> once support is added
 // TODO: Replace __IndexOf and __Min with constexpr once support is added (iterating over initalizer_list)
 // TODO: Replace num_true with fold expressions once support is added

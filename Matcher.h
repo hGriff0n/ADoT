@@ -1,6 +1,5 @@
 #pragma once
 
-//#include "function_traits.h"
 #include "has_interface.h"
 
 namespace shl {
@@ -156,8 +155,9 @@ namespace shl {
 		private:
 			std::tuple<Fns...> fns;
 
+			// Note: takes_args needs the `const&` for some reason to ensure correct performance
 			template<class T>
-			void match_impl(T val) {
+			void match_impl(const T& val) {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
@@ -177,9 +177,8 @@ namespace shl {
 		public:
 			Matcher(std::tuple<Fns...>&& fns) : fns{ fns } {}
 
-			template<class T> void operator()(const T& val) { return match_impl<const T&>(val); }
-
-			template<class T> void match(const T& val) { return match_impl<const T&>(val); }
+			template<class T> void operator()(const T& val) { return match_impl(val); }
+			template<class T> void match(const T& val) { return match_impl(val); }
 	};
 
 	// Pass the value on to the provided matcher object for match resolution

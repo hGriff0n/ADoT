@@ -6,7 +6,10 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Remove the `const&` from the template system
+// TODO: Decide on the performance of the second example (highlights the `const&` issue
+	// takes_args apparently needs the `const&` to perform correctly with some conditions
+// TODO: Switch over to using perfect-forwarding (`const&` -> `&&`)
+// TODO: Figure out how whether MatchBuilder's match will cause compiler issues
 // TODO: Get all string cases to work (I think there's a compiler/std bug though)
 // TODO: Get match selection to better follow C++ function resolution (ie. when level(a) == level(b))
 
@@ -43,6 +46,13 @@ int main() {
 	auto f = 3.3f;
 
 	// Should give "A cstring"
+	shl::match(c_str)
+		| [](const std::string& name) { std::cout << "A string\n"; }
+		|| [](const char* name) { std::cout << "A cstring\n"; };
+
+	// Should give ???
+		// Gives "A string"
+	std::cout << "? ";
 	shl::match(c_str)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| [](const char* const& name) { std::cout << "A cstring\n"; };

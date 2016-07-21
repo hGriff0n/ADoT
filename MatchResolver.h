@@ -14,12 +14,12 @@ namespace shl {
 	template <bool, class T, class... Fns>
 	class MatchResolver {
 		private:
-			T val;
+			const T& val;
 			std::tuple<Fns...> match;
 
 		public:
-			constexpr MatchResolver(T val) : val{ val }, match{ std::make_tuple() } {}
-			constexpr MatchResolver(T val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
+			constexpr MatchResolver(const T& val) : val{ val }, match{ std::make_tuple() } {}
+			constexpr MatchResolver(const T& val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
 			// Can't implement a "error" destructor because of all the temporaries (no way of enforcing a future match)
 
 			template <class F>
@@ -39,16 +39,16 @@ namespace shl {
 	template <class T, class... Fns>
 	class MatchResolver<true, T, Fns...> {
 		private:
-			T val;
+			const T& val;
 			Matcher<Fns...> match;
 
 		public:
-			constexpr MatchResolver(T val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
+			constexpr MatchResolver(const T& val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
 			~MatchResolver() { match(val); }
 	};
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
-	template<class T> constexpr MatchResolver<false, const T&> match(const T& val) {
-		return MatchResolver<false, const T&>{ val };
+	template<class T> constexpr MatchResolver<false, T> match(const T& val) {
+		return MatchResolver<false, T>{ val };
 	}
 }

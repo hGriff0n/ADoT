@@ -32,7 +32,6 @@ namespace shl {
 	};
 
 	// Interface function for starting a MatchBuilder chain
-		// TODO: I don't know if this'll cause compiler errors or not (due to multiple includes)
 	inline constexpr MatchBuilder<> match() {
 		return MatchBuilder<>{ std::make_tuple() };
 	}

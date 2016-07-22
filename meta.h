@@ -2,6 +2,19 @@
 
 #include "has_interface.h"
 
+// TODO: Remove when std::apply is implemented
+namespace std {
+	template<class F, class T, std::size_t... I>
+	constexpr auto apply_impl(F&& f, T&& t, std::index_sequence<I...>) {
+		return std::invoke(std::forward<F>(f), std::get<I>(std::forward<T>(t))...);
+	}
+
+	template<class F, class T>
+	constexpr auto apply(F&& f, T&& t) {
+		return apply_impl(std::forward<F>(f), std::forward<T>(t), std::make_index_sequence<std::tuple_size<std::decay_t<T>>::value>{});
+	}
+}
+
 namespace shl {
 	template<class, class> struct call_matcher;
 

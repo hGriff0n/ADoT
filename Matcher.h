@@ -54,16 +54,15 @@ namespace shl {
 				fn(val);
 			}
 
-			// Apply tuple to the chosen function
+			// Apply tuple to the chosen function (only created if the function takes the decomposed tuple)
 			template <class F, class... T>
 			static std::enable_if_t<!base_case<F>::value && takes_args<F, T...>::value> invoke(F&& fn, std::tuple<T...> val) {
-				std::cout << "Applying\n";
 				apply(std::forward<F>(fn), std::forward<std::tuple<T...>>(val));
 			}
 
 			// Dispatch to a non-function value
 			template <class F, class T>
-			static std::enable_if_t<!base_case<F>::value && !is_callable<F>::value> invoke(F&& fn, T val) {
+			static std::enable_if_t<!is_callable<F>::value> invoke(F&& fn, T val) {
 				fn;
 			}
 

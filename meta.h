@@ -60,7 +60,7 @@ namespace shl {
 				static constexpr bool decomposition = call_matcher<arg_types, decom_type>::value;
 
 				static constexpr bool value = accepts_tuple || decomposition;
-				static constexpr size_t level = decomposition ? call_matcher<arg_types, decom_type>::value + 1 : call_matcher<arg_types, tuple_type>::value;
+				static constexpr size_t level = decomposition ? call_matcher<arg_types, decom_type>::level + 1 : call_matcher<arg_types, tuple_type>::level;
 		};
 
 

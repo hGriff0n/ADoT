@@ -6,7 +6,10 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Decide on the result of the second example (highlights the `const&` issue)
+// TODO: Allow decomposing of tuples
+	// ie match(tuple<int, string>) => [](int, string) {}
+	// Have decomposing a tuple = `+1` for the level
+// TODO: Decide on the result of the fourth example (highlights the `const&` issue)
 	// takes_args apparently needs the `const&` to perform correctly with some conditions
 // TODO: Switch over to using perfect-forwarding (`const&` -> `&&`)
 // TODO: Figure out how whether MatchBuilder's match will cause compiler issues
@@ -32,7 +35,6 @@
 // TODO: Replace __IndexOf and __Min with constexpr once support is added (iterating over initalizer_list)
 // TODO: Replace num_true with fold expressions once support is added
 // TODO: Rework match to work for variant and any once support is added
-// TODO: Rework match to work for tuples (I think I need to wait for `std::apply`)
 // TODO: Find a way to warn about missing '||'			<- Not possible AFAIK
 // TODO: Find a way to remove the need for '||' syntax	<- Not possible AFAIK
 
@@ -41,10 +43,23 @@
 
 
 int main() {
-	auto tup = std::make_tuple();
+	auto tup = std::make_tuple(3, "Hello");
 	std::string str = "Hello";
 	const char* c_str = str.c_str();
 	auto f = 3.3f;
+
+	// Should give "Tuple Not Applied"
+		// Gives "Base Case"
+	shl::match(tup)
+		| [](int i, std::string msg) { std::cout << "Tuple Applied"; }
+		| [](std::tuple<int, std::string> tup) { std::cout << "Tuple Not Applied\n"; }
+		|| []() { std::cout << "Base case\n"; };
+
+	// Should give "Tuple Applied"
+		// Gives "Base Case"
+	shl::match(tup)
+		| [](int i, std::string msg) { std::cout << "Tuple Applied"; }
+		|| []() { std::cout << "Base case\n"; };
 
 	// Should give "A cstring"
 	shl::match(c_str)

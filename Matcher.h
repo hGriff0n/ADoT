@@ -20,6 +20,16 @@ namespace shl {
 			static constexpr size_t value = (match == val) ? N : -1;
 		};
 
+		// Temporary implementation of std::apply
+		template<class F, class T, std::size_t... I>
+		constexpr auto apply_impl(F&& f, T&& t, std::index_sequence<I...>) {
+			return std::invoke(std::forward<F>(f), std::get<I>(std::forward<T>(t))...);
+		}
+
+		template<class F, class T>
+		constexpr auto apply(F&& f, T&& t) {
+			return apply_impl(std::forward<F>(f), std::forward<T>(t), std::make_index_sequence<std::tuple_size<std::decay_t<T>>::value>{});
+		}
 
 		/*
 		 * Helper struct for Matcher that enables compile-time checking of pattern exhaustiveness and
@@ -32,15 +42,29 @@ namespace shl {
 		 *	Can clean up SFINAE functions when `if constexpr` is implemented
 		 */
 		struct __MatchHelper {
-			// Handle dispatching to function if the function takes 0 or 1+ arguments
+			// Dispatch to the base case (is_callable<F> == true if base_case<F> == true)
 			template <class F, class T>
 			static std::enable_if_t<base_case<F>::value> invoke(F&& fn, T val) {
 				fn();
 			}
 
+			// Dispatch to a function that accepts arguments
 			template <class F, class T>
-			static std::enable_if_t<!base_case<F>::value> invoke(F&& fn, T val) {
+			static std::enable_if_t<!base_case<F>::value && is_callable<F>::value> invoke(F&& fn, T val) {
 				fn(val);
+			}
+
+			// Apply tuple to the chosen function
+			template <class F, class... T>
+			static std::enable_if_t<!base_case<F>::value && takes_args<F, T...>::value> invoke(F&& fn, std::tuple<T...> val) {
+				std::cout << "Applying\n";
+				apply(std::forward<F>(fn), std::forward<std::tuple<T...>>(val));
+			}
+
+			// Dispatch to a non-function value
+			template <class F, class T>
+			static std::enable_if_t<!base_case<F>::value && !is_callable<F>::value> invoke(F&& fn, T val) {
+				fn;
 			}
 
 			// I can remove this and the size_t template (see commented code in Matcher), but this makes nicer compiler errors

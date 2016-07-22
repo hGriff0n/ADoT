@@ -9,7 +9,7 @@ namespace shl {
 		// Counts the number of ocurrances of eq in the parameter pack
 		template<class T, T eq, T b, T... ts>
 		struct count_where_eq {
-			static constexpr size_t value = (eq == b) + count_where_eq<ts...>::value;
+			static constexpr size_t value = (eq == b) + count_where_eq<T, eq, ts...>::value;
 		};
 
 		template<class T, T eq, T b>
@@ -43,9 +43,25 @@ namespace shl {
 
 		// Impl class to enable safe handling of types that aren't callable
 		template<bool, class Fn, class... Args>
-		struct __TaksArgs : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+		struct __TakesArgs : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 		template<class Fn, class... Args>
-		struct __TaksArgs<false, Fn, Args...> : __CallMatcher<false, Fn, Args...> {};
+		struct __TakesArgs<false, Fn, Args...> : __CallMatcher<false, Fn, Args...> {};
+
+		// Special overload to allow for tuple decomposition
+		template<class Fn, class... Args>
+		struct __TakesArgs<true, Fn, std::tuple<Args...>> {
+			private:
+				using arg_types = typename function_traits<Fn>::arg_types;
+				using decom_type = std::tuple<Args...>;
+				using tuple_type = std::tuple<decom_type>;
+
+			public:
+				static constexpr bool accepts_tuple = call_matcher<arg_types, tuple_type>::value;
+				static constexpr bool decomposition = call_matcher<arg_types, decom_type>::value;
+
+				static constexpr bool value = accepts_tuple || decomposition;
+				static constexpr size_t level = decomposition ? call_matcher<arg_types, decom_type>::value + 1 : call_matcher<arg_types, tuple_type>::value;
+		};
 
 
 		// Impl class to enable safe handling of types that aren't callable
@@ -64,6 +80,7 @@ namespace shl {
 		struct __CanProduce<false, Arg, Ret> : std::is_convertible<Arg, Ret> {};
 	}
 
+
 	// SFINAE traits class to determine matching that accounts for implicit conversions
 	template<class... Params, class... Args>
 	struct call_matcher<std::tuple<Params...>, std::tuple<Args...>> : impl::__CallMatcher<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
@@ -71,7 +88,7 @@ namespace shl {
 
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : impl::__TaksArgs<is_callable<Fn>::value, Fn, Args...> {};
+	struct takes_args : impl::__TakesArgs<is_callable<Fn>::value, Fn, Args...> {};
 
 
 	// Simple wrapper that recognizes the base case function

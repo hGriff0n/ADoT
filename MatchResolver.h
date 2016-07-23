@@ -24,12 +24,12 @@ namespace shl {
 
 			template <class F>
 			constexpr MatchResolver<false, T, Fns..., F> operator|(F&& fn) {
-				return MatchResolver<false, T, Fns..., F>{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
+				return{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
 			}
 
 			template <class F>
 			constexpr MatchResolver<true, T, Fns..., F> operator||(F&& fn) {
-				return MatchResolver<true, T, Fns..., F>{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
+				return{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
 			}
 	};
 
@@ -49,6 +49,6 @@ namespace shl {
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
 	template<class T> constexpr MatchResolver<false, T> match(T&& val) {
-		return MatchResolver<false, T>{ std::forward<T>(val) };
+		return{ std::forward<T>(val) };
 	}
 }

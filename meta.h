@@ -44,7 +44,7 @@ namespace shl {
 			static constexpr bool value = sizeof...(Params) == num_true<std::is_convertible<Args, Params>::value...>::value;
 
 			// Number of conversions that would be needed to successfully call the function (min is the best match)
-			static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<Params, Args>::value...>::value : -1;
+			static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<std::decay_t<Params>, Args>::value...>::value : -1;
 		};
 
 		template<class... Params, class... Args>
@@ -68,10 +68,10 @@ namespace shl {
 				using decom_type = std::tuple<Args...>;
 				using tuple_type = std::tuple<decom_type>;
 
-			public:
 				static constexpr bool accepts_tuple = call_matcher<arg_types, tuple_type>::value;
 				static constexpr bool decomposition = call_matcher<arg_types, decom_type>::value;
 
+			public:
 				static constexpr bool value = accepts_tuple || decomposition;
 				static constexpr size_t level = decomposition ? call_matcher<arg_types, decom_type>::level + 1 : call_matcher<arg_types, tuple_type>::level;
 		};

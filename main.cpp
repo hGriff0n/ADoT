@@ -6,28 +6,24 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Figure out why I can't perfect forward the tuple-apply invoke (It's a type system error)
-// TODO: Decide on the result of the seventh example (this produced "A cstring" before I removed `const&` from the template system)
+// TODO: Decide on the result of the 6th example (this produced "A cstring" before I removed `const&` from the template system)
 // TODO: Get all string cases to work (I think there's a compiler/std bug though)
-// TODO: Get match selection to better follow C++ function resolution (ie. when level(a) == level(b))
+// TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
 	// I'll probably need to add in a "meta" way of determining better-ness
 
 // TODO: Improve implementation and organization
-// TODO: Improve function_traits and has_interface to handle generic lambdas/etc
+// TODO: Improve function_traits/et. al. to handle generic lambdas/etc
 // TODO: Figure out how to handle non-lambdas
 	// Can't convert from `initializer_list` to `MatchResolver<...>` (How is this even happening?)
 // TODO: Add the ability to "return" (get a value) from match
-	// Full support will likely require `std::any`
-	// Intermediate support can rely on explicitly specifying the template parameters
-		// void would be the default, but i don't know how I would change over
-// TODO: Work on actual ADT syntax
+// TODO: Actually work on ADT syntax
 
 // TODO: Figure out if it would be possible and beneficial to add match resolution tweaking from client code
 	// If I add in the "meta"-better struct, then I can add it as a parameter
-// TODO: Improve __IndexOf with template<auto> once support is added
+// TODO: Improve meta structs with template<auto> once support is added
 // TODO: Replace __IndexOf and __Min with constexpr once support is added (iterating over initalizer_list)
 // TODO: Replace num_true with fold expressions once support is added
-// TODO: Rework match to work for variant and any once support is added
+// TODO: Rework match to work for `std::variant` and `std::any` once support is added
 // TODO: Find a way to warn about missing '||'			<- Not possible AFAIK
 // TODO: Find a way to remove the need for '||' syntax	<- Not possible AFAIK
 
@@ -57,11 +53,6 @@ int main() {
 		| [](int i, std::string s) { std::cout << "String Tuple\n"; }
 		|| [](int i, const char* s) { std::cout << "Cstring Tuple\n"; };
 
-	// Should give "Cstring Tuple"
-	shl::match(tup)
-		| [](int i, const char* s) { std::cout << "Cstring Tuple\n"; }
-		|| [](int i, std::string s) { std::cout << "String Tuple\n"; };
-
 	// Should give "Works properly"
 	shl::match(tup)
 		| [](std::tuple<int, std::string> tup) { std::cout << "Does not work\n"; }
@@ -72,8 +63,7 @@ int main() {
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| [](const char* name) { std::cout << "A cstring\n"; };
 
-	// Should give ???
-		// Gives "A string"
+	// Should give "A cstring"
 	std::cout << "? ";
 	shl::match(c_str)
 		| [](const std::string& name) { std::cout << "A string\n"; }
@@ -100,6 +90,16 @@ int main() {
 	shl::match(f)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| []() { std::cout << "Base case\n"; };
+
+	// Should give ???
+	shl::match(3)
+		| [](short s) { std::cout << "A short\n"; }
+		|| [](long l) { std::cout << "A long\n"; };
+
+	// Should give ???
+	shl::match(3)
+		| [](long l) { std::cout << "A long\n"; }
+		|| [](short s) { std::cout << "A short\n"; };
 
 	std::cin.get();
 }

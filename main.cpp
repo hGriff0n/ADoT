@@ -6,21 +6,17 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Decide on the result of the fifth example (highlights the `const&` issue)
-	// takes_args apparently needs the `const&` to perform correctly with some conditions
-// TODO: Switch over to using perfect-forwarding (`const&` -> `&&`)
-// TODO: Figure out how whether MatchBuilder's match will cause compiler issues
+// TODO: Figure out why I can't perfect forward the tuple-apply invoke (It's a type system error)
+// TODO: Decide on the result of the seventh example (this produced "A cstring" before I removed `const&` from the template system)
 // TODO: Get all string cases to work (I think there's a compiler/std bug though)
 // TODO: Get match selection to better follow C++ function resolution (ie. when level(a) == level(b))
-	// I'll probably need to add in a "meta" way of determining better
+	// I'll probably need to add in a "meta" way of determining better-ness
 
 // TODO: Improve implementation and organization
 // TODO: Improve function_traits and has_interface to handle generic lambdas/etc
 // TODO: Figure out how to handle non-lambdas
 	// Can't convert from `initializer_list` to `MatchResolver<...>` (How is this even happening?)
-	// Would need to add in extra templates for calling
 // TODO: Add the ability to "return" (get a value) from match
-	// Add in `can_produce` struct from the old stash
 	// Full support will likely require `std::any`
 	// Intermediate support can rely on explicitly specifying the template parameters
 		// void would be the default, but i don't know how I would change over
@@ -65,6 +61,11 @@ int main() {
 	shl::match(tup)
 		| [](int i, const char* s) { std::cout << "Cstring Tuple\n"; }
 		|| [](int i, std::string s) { std::cout << "String Tuple\n"; };
+
+	// Should give "Works properly"
+	shl::match(tup)
+		| [](std::tuple<int, std::string> tup) { std::cout << "Does not work\n"; }
+		|| [](std::tuple<int, const char*> tst) { std::cout << "Works Properly\n"; };
 
 	// Should give "A cstring"
 	shl::match(c_str)

@@ -14,22 +14,22 @@ namespace shl {
 	template <bool, class T, class... Fns>
 	class MatchResolver {
 		private:
-			const T& val;
+			T&& val;
 			std::tuple<Fns...> match;
 
 		public:
-			constexpr MatchResolver(const T& val) : val{ val }, match{ std::make_tuple() } {}
-			constexpr MatchResolver(const T& val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
+			constexpr MatchResolver(T&& val) : val{ std::forward<T>(val) }, match{ std::make_tuple() } {}
+			constexpr MatchResolver(T&& val, std::tuple<Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
 			// Can't implement a "error" destructor because of all the temporaries (no way of enforcing a future match)
 
 			template <class F>
 			constexpr MatchResolver<false, T, Fns..., F> operator|(F&& fn) {
-				return MatchResolver<false, T, Fns..., F>{ val, std::tuple_cat(match, std::make_tuple(fn)) };
+				return MatchResolver<false, T, Fns..., F>{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
 			}
 
 			template <class F>
 			constexpr MatchResolver<true, T, Fns..., F> operator||(F&& fn) {
-				return MatchResolver<true, T, Fns..., F>{ val, std::tuple_cat(match, std::make_tuple(fn)) };
+				return MatchResolver<true, T, Fns..., F>{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
 			}
 	};
 
@@ -39,16 +39,16 @@ namespace shl {
 	template <class T, class... Fns>
 	class MatchResolver<true, T, Fns...> {
 		private:
-			const T& val;
+			T&& val;
 			Matcher<Fns...> match;
 
 		public:
-			constexpr MatchResolver(const T& val, std::tuple<Fns...>&& fns) : val{ val }, match{ std::move(fns) } {}
-			~MatchResolver() { match(val); }
+			constexpr MatchResolver(T&& val, std::tuple<Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
+			~MatchResolver() { match(std::forward<T>(val)); }
 	};
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
-	template<class T> constexpr MatchResolver<false, T> match(const T& val) {
-		return MatchResolver<false, T>{ val };
+	template<class T> constexpr MatchResolver<false, T> match(T&& val) {
+		return MatchResolver<false, T>{ std::forward<T>(val) };
 	}
 }

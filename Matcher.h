@@ -33,14 +33,14 @@ namespace shl {
 		struct __MatchHelper {
 			// Dispatch to the base case (is_callable<F> == true if base_case<F> == true)
 			template <class F, class T>
-			static std::enable_if_t<base_case<F>::value> invoke(F&& fn, T val) {
+			static std::enable_if_t<base_case<F>::value> invoke(F&& fn, T&& val) {
 				fn();
 			}
 
 			// Dispatch to a function that accepts arguments
 			template <class F, class T>
-			static std::enable_if_t<!base_case<F>::value && is_callable<F>::value> invoke(F&& fn, T val) {
-				fn(val);
+			static std::enable_if_t<!base_case<F>::value && is_callable<F>::value> invoke(F&& fn, T&& val) {
+				fn(std::forward<T>(val));
 			}
 
 			// Apply tuple to the chosen function (only created if the function takes the decomposed tuple)
@@ -51,14 +51,14 @@ namespace shl {
 
 			// Dispatch to a non-function value
 			template <class F, class T>
-			static std::enable_if_t<!is_callable<F>::value> invoke(F&& fn, T val) {
+			static std::enable_if_t<!is_callable<F>::value> invoke(F&& fn, T&& val) {
 				fn;
 			}
 
 			// I can remove this and the size_t template (see commented code in Matcher), but this makes nicer compiler errors
 			template <size_t N, class T, class... Args>
-			static void nice_invoke(std::tuple<Args...>& fns, T val) {
-				invoke(std::get<N>(fns), val);
+			static void nice_invoke(std::tuple<Args...>& fns, T&& val) {
+				invoke(std::get<N>(fns), std::forward<T>(val));
 			}
 
 		};
@@ -95,35 +95,35 @@ namespace shl {
 		private:
 			std::tuple<Fns...> fns;
 
-			// Note: takes_args needs the `const&` for some reason to ensure correct performance
 			template<class T>
-			void match_impl(const T& val) {
+			void match_impl(T&& val) {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
-				constexpr auto min = __Min<takes_args<Fns, T>::level...>::value;					// Find the minimum number of conversions
+					// The `std::decay_t<T>` is needed to remove the reference typing maintained by perfect forwarding
+				constexpr auto min = __Min<takes_args<Fns, std::decay_t<T>>::level...>::value;					// Find the minimum number of conversions
 				constexpr auto index = __Control<size_t>::ifelse(min != -1,
-					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,					// Take the best match if one exists
-					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);						// Otherwise take the base case
+					__IndexOf<size_t, min, 0, takes_args<Fns, std::decay_t<T>>::level...>::value,				// Take the best match if one exists
+					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);									// Otherwise take the base case
 
 				// Raise a compiler error if no function was found
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");
 
 				// Call the choosen function
-				__MatchHelper::nice_invoke<index>(fns, val);
+				__MatchHelper::nice_invoke<index>(fns, std::forward<T>(val));
 				//__MatchHelper::invoke(std::get<index>(fns), val);				// std::get raises compiler errors in spite of the static_assert
 			}
 
 		public:
 			Matcher(std::tuple<Fns...>&& fns) : fns{ fns } {}
 
-			template<class T> void operator()(const T& val) { return match_impl(val); }
-			template<class T> void match(const T& val) { return match_impl(val); }
+			template<class T> void operator()(T&& val) { return match_impl(std::forward<T>(val)); }
+			template<class T> void match(T&& val) { return match_impl(std::forward<T>(val)); }
 	};
 
 	// Pass the value on to the provided matcher object for match resolution
 	template<class T, class... Args>
-	void match(const T& val, Matcher<Args...>& matcher) {
-		matcher.match(val);
+	void match(T&& val, Matcher<Args...>& matcher) {
+		matcher.match(std::forward<T>(val));
 	}
 }

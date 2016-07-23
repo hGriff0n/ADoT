@@ -32,6 +32,7 @@ namespace shl {
 	};
 
 	// Interface function for starting a MatchBuilder chain
+		// Inline functions can be defined in multiple translation units iff the definition is the same
 	inline constexpr MatchBuilder<> match() {
 		return MatchBuilder<>{ std::make_tuple() };
 	}

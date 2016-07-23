@@ -32,6 +32,19 @@ namespace shl {
 	template<class, class> struct call_matcher;
 
 	namespace impl {
+		// Preserve typing for string literals (std::decay strips away the size, etc.
+		template<class Arg>
+		struct decay : std::decay<Arg> {};
+
+		template<class C, size_t N>
+		struct decay<C(&)[N]> {
+			using type = C(&)[N];
+		};
+
+		template<class T>
+		using decay_t = typename decay<T>::type;
+
+
 		// Counts the number of ocurrances of eq in the parameter pack
 		template<class T, T eq, T b, T... ts>
 		struct count_where_eq {
@@ -57,7 +70,7 @@ namespace shl {
 			static constexpr bool value = sizeof...(Params) == num_true<std::is_convertible<Args, Params>::value...>::value;
 
 			// Number of conversions that would be needed to successfully call the function (min is the best match)
-			static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<std::decay_t<Params>, Args>::value...>::value : -1;
+			static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<impl::decay_t<Params>, Args>::value...>::value : -1;
 		};
 
 		template<class... Params, class... Args>
@@ -114,11 +127,7 @@ namespace shl {
 
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : impl::__TakesArgs<is_callable<Fn>::value, Fn, std::decay_t<Args>...> {};
-
-	// Special overload for string literals to preserve the length (std::decay turns them into pointers)
-	template<class Fn, class C, size_t N>
-	struct takes_args<Fn, const C(&)[N]> : impl::__TakesArgs<is_callable<Fn>::value, Fn, std::tuple<const C(&)[N]>> {};
+	struct takes_args : impl::__TakesArgs<is_callable<Fn>::value, Fn, impl::decay_t<Args>...> {};
 
 
 	// Simple wrapper that recognizes the base case function

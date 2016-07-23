@@ -6,8 +6,6 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Get all string cases to work (I think there's a compiler/std bug though)
-	// Now it can't distinguish between const char*, const char(&)[N], and std::string
 // TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
 	// I'll probably need to add in a "meta" way of determining better-ness
 
@@ -37,72 +35,74 @@ int main() {
 	const char* c_str = str.c_str();
 	auto f = 3.3f;
 
-	// Should give "Tuple Not Applied"
+	std::cout << "Expected          - Recieved\nTuple Not Applied - ";
 	shl::match(tup)
 		| [](int i, std::string msg) { std::cout << "Tuple Applied"; }
 		| [](std::tuple<int, std::string> tup) { std::cout << "Tuple Not Applied\n"; }
 		|| []() { std::cout << "Base case\n"; };
 
-	// Should give "Tuple Applied"
+	std::cout << "Tuple Applied     - ";
 	shl::match(tup)
 		| [](int i, std::string msg) { std::cout << "Tuple Applied\n"; }
 		|| []() { std::cout << "Base case\n"; };
 
-	// Should give "Cstring Tuple"
+	std::cout << "Cstring Tuple     - ";
 	shl::match(tup)
 		| [](int i, std::string s) { std::cout << "String Tuple\n"; }
 		|| [](int i, const char* s) { std::cout << "Cstring Tuple\n"; };
 
-	// Should give "Works properly"
+	std::cout << "Works properly    - ";
 	shl::match(tup)
 		| [](std::tuple<int, std::string> tup) { std::cout << "Does not work\n"; }
 		|| [](std::tuple<int, const char*> tst) { std::cout << "Works Properly\n"; };
 
-	// Should give "A cstring"
+	std::cout << "A cstring         - ";
 	shl::match(c_str)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| [](const char* name) { std::cout << "A cstring\n"; };
 
-	// Should give "A cstring"
+	std::cout << "A cstring         - ";
 	shl::match(c_str)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| [](const char* const& name) { std::cout << "A cstring\n"; };
 
-	// Should give "A string"
+	std::cout << "A string          - ";
 	shl::match(c_str)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| []() { std::cout << "Base case\n"; };
 
-	// Should give "A string"
+	std::cout << "A string          - ";
 	shl::match("World!")
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| []() { std::cout << "Base case\n"; };
 
-	// Should give "A literal" <- I'd accept "A cstring"
-		// Gives "A string"
-	std::cout << "-";
+	std::cout << "A literal         - ";
 	shl::match("World!")
-		| [](std::string s) { std::cout << "A string\n"; }
 		| [](const char* l) { std::cout << "A cstring\n"; }
 		|| [](const char (&name)[7]) { std::cout << "A literal\n"; };
 
-	// Should give "A literal"
-	std::cout << "-";
+	std::cout << "A cstring         - ";
 	shl::match("World!")
-		| [](const char(&name)[7]) { std::cout << "A literal\n"; }
-		|| [](const char* l) { std::cout << "A cstring\n"; };
+		| [](const char* l) { std::cout << "A cstring\n"; }
+		|| []() { std::cout << "Base case\n"; };
 
-	// Should give "Base case"
+	std::cout << "A string          - ";
+	shl::match("World!")
+		| [](std::string n) { std::cout << "A string\n"; }
+		|| [](const char* l) { std::cout << "A cstring\n"; };				// Note: `string` and `const char*` have equal fit to a string literal
+	
+
+	std::cout << "Base case         - ";
 	shl::match(f)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| []() { std::cout << "Base case\n"; };
 
-	// Should give ???
+	std::cout << "???               - ";
 	shl::match(3)
 		| [](short s) { std::cout << "A short\n"; }
 		|| [](long l) { std::cout << "A long\n"; };
 
-	// Should give ???
+	std::cout << "???               - ";
 	shl::match(3)
 		| [](long l) { std::cout << "A long\n"; }
 		|| [](short s) { std::cout << "A short\n"; };

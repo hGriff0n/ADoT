@@ -13,6 +13,19 @@ namespace std {
 	constexpr auto apply(F&& f, T&& t) {
 		return apply_impl(std::forward<F>(f), std::forward<T>(t), std::make_index_sequence<std::tuple_size<std::decay_t<T>>::value>{});
 	}
+
+	/*
+	template<class F, class V, class... Param>
+	constexpr auto apply_impl(F&& f, V&& v) {
+		return std::invoke(std::forward<F>(f), std::get<Param>(std::forward<V>(v))...);
+	}
+
+	// Only problem is in how to get the templates
+	template<class F, class... Args>
+	constexpr auto apply_impl<typename shl::function_traits<F>::arg_types>(F&& f, std::variant<Args...>&& v) {
+		
+	}
+	*/
 }
 
 namespace shl {
@@ -101,7 +114,11 @@ namespace shl {
 
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : impl::__TakesArgs<is_callable<Fn>::value, Fn, Args...> {};
+	struct takes_args : impl::__TakesArgs<is_callable<Fn>::value, Fn, std::decay_t<Args>...> {};
+
+	// Special overload for string literals to preserve the length (std::decay turns them into pointers)
+	template<class Fn, class C, size_t N>
+	struct takes_args<Fn, const C(&)[N]> : impl::__TakesArgs<is_callable<Fn>::value, Fn, std::tuple<const C(&)[N]>> {};
 
 
 	// Simple wrapper that recognizes the base case function

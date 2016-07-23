@@ -100,18 +100,16 @@ namespace shl {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
-					// The `std::decay_t<T>` is needed to remove the reference typing maintained by perfect forwarding
-				constexpr auto min = __Min<takes_args<Fns, std::decay_t<T>>::level...>::value;					// Find the minimum number of conversions
+				constexpr auto min = __Min<takes_args<Fns, T>::level...>::value;								// Find the minimum number of conversions
 				constexpr auto index = __Control<size_t>::ifelse(min != -1,
-					__IndexOf<size_t, min, 0, takes_args<Fns, std::decay_t<T>>::level...>::value,				// Take the best match if one exists
+					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,								// Take the best match if one exists
 					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);									// Otherwise take the base case
 
 				// Raise a compiler error if no function was found
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");
 
 				// Call the choosen function
-				__MatchHelper::nice_invoke<index>(fns, std::forward<T>(val));
-				//__MatchHelper::invoke(std::get<index>(fns), val);				// std::get raises compiler errors in spite of the static_assert
+				__MatchHelper::nice_invoke<index>(fns, std::forward<T>(val));									// Hide compiler errors from `std::get` when index >= sizeof...(Fns)
 			}
 
 		public:

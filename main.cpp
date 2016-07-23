@@ -6,8 +6,8 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Decide on the result of the 6th example (this produced "A cstring" before I removed `const&` from the template system)
 // TODO: Get all string cases to work (I think there's a compiler/std bug though)
+	// Now it can't distinguish between const char*, const char(&)[N], and std::string
 // TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
 	// I'll probably need to add in a "meta" way of determining better-ness
 
@@ -64,7 +64,6 @@ int main() {
 		|| [](const char* name) { std::cout << "A cstring\n"; };
 
 	// Should give "A cstring"
-	std::cout << "? ";
 	shl::match(c_str)
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| [](const char* const& name) { std::cout << "A cstring\n"; };
@@ -79,12 +78,19 @@ int main() {
 		| [](const std::string& name) { std::cout << "A string\n"; }
 		|| []() { std::cout << "Base case\n"; };
 
+	// Should give "A literal" <- I'd accept "A cstring"
+		// Gives "A string"
+	std::cout << "-";
+	shl::match("World!")
+		| [](std::string s) { std::cout << "A string\n"; }
+		| [](const char* l) { std::cout << "A cstring\n"; }
+		|| [](const char (&name)[7]) { std::cout << "A literal\n"; };
+
 	// Should give "A literal"
-		// Crashes compiler trying to call the second function
-	//shl::match("World!")
-	//	| [](const std::string& name) { std::cout << "A string\n"; }
-	//	|| [](const char* name) { std::cout << "A literal\n"; };			// Yet this match isn't selected !
-	//	|| [](const char (&name)[7]) { std::cout << "A literal\n"; };		<- This crashes the compiler because "can't convert from `const char*` to `const char (&)[7]`
+	std::cout << "-";
+	shl::match("World!")
+		| [](const char(&name)[7]) { std::cout << "A literal\n"; }
+		|| [](const char* l) { std::cout << "A cstring\n"; };
 
 	// Should give "Base case"
 	shl::match(f)

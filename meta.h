@@ -46,6 +46,7 @@ namespace shl {
 
 
 		// Counts the number of ocurrances of eq in the parameter pack
+		//template<auto eq, auto b, auto... ts>
 		template<class T, T eq, T b, T... ts>
 		struct count_where_eq {
 			static constexpr size_t value = (eq == b) + count_where_eq<T, eq, ts...>::value;
@@ -86,9 +87,10 @@ namespace shl {
 		template<bool, class Fn, class... Args>
 		struct __TakesArgs : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 		template<class Fn, class... Args>
-		struct __TakesArgs<false, Fn, Args...> : __CallMatcher<false, Fn, Args...> {};
+		struct __TakesArgs<false, Fn, Args...> : __CallMatcher<false, std::tuple<Fn>, std::tuple<Args...>> {};
 
-// Disable integral overflow warning on line 108 (the situation will never occur unless someone tries to call a 4 million arg function, but at that point something's wrong anyways)
+
+// Disable integral overflow warning on line 111 (the situation will never occur unless someone tries to call a 4 million arg function, but at that point something's wrong anyways)
 		// It will never occur because the `call_matcher<arg_types, decom_type>::level` only equals `-1` if decomposition is `false` or there's a 4 million arg function being called
 #pragma warning (push)
 #pragma warning (disable:4307)

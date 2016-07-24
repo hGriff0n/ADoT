@@ -6,12 +6,12 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
+// TODO: Figure out how to handle non-lambdas
+	// MatchResolver has a working implementation for accepting them in cases, but I have no idea how this interacts (they aren't apparently called)
 // TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
 	// I'll probably need to add in a "meta" way of determining better-ness
 
 // TODO: Improve function_traits/et. al. to handle generic lambdas/etc
-// TODO: Figure out how to handle non-lambdas
-	// Can't convert from `initializer_list` to `MatchResolver<...>` (How is this even happening?)
 // TODO: Add the ability to "return" (get a value) from match
 // TODO: Actually work on ADT syntax
 

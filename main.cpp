@@ -6,12 +6,10 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Figure out how to handle non-lambdas
-	// MatchResolver has a working implementation for accepting them in cases, but I have no idea how this interacts (they aren't apparently called)
 // TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
 	// I'll probably need to add in a "meta" way of determining better-ness
 
-// TODO: Improve function_traits/et. al. to handle generic lambdas/etc
+// TODO: Improve callable/function_traits/et. al. to handle generic lambdas/etc
 // TODO: Add the ability to "return" (get a value) from match
 // TODO: Actually work on ADT syntax
 
@@ -89,11 +87,11 @@ int main() {
 	shl::match("World!")
 		| [](std::string n) { std::cout << "A string\n"; }
 		|| [](const char* l) { std::cout << "A cstring\n"; };				// Note: `string` and `const char*` have equal fit to a string literal
-	
 
 	std::cout << "Base case         - ";
 	shl::match(f)
 		| [](const std::string& name) { std::cout << "A string\n"; }
+		| f																	// This case is never considered currently (worst fit, See "meta.h:141")
 		|| []() { std::cout << "Base case\n"; };
 
 	std::cout << "???               - ";
@@ -105,6 +103,11 @@ int main() {
 	shl::match(3)
 		| [](long l) { std::cout << "A long\n"; }
 		|| [](short s) { std::cout << "A short\n"; };
+
+	std::cout << "Generics          - ";
+	shl::match(3)
+		| [](auto x) { std::cout << "Generics\n"; }
+		|| []() { std::cout << "Base Case\n"; };
 
 	std::cin.get();
 }

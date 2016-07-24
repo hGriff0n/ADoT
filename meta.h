@@ -32,7 +32,7 @@ namespace shl {
 	template<class, class> struct call_matcher;
 
 	namespace impl {
-		// Preserve typing for string literals (std::decay strips away the size, etc.
+		// Preserve typing for string literals (std::decay strips away the size, etc.)
 		template<class Arg>
 		struct decay : std::decay<Arg> {};
 

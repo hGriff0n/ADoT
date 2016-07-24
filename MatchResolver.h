@@ -24,20 +24,13 @@ namespace shl {
 			// Can't implement a "error" destructor because of all the temporaries (no way of enforcing a future match)
 
 			template <class F>	
-			constexpr MatchResolver<false, T, Fns..., std::enable_if_t<callable<F>::value, F>> operator|(F&& fn) {
-				using namespace std;
-				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
-			}
-
-			// Allow non-functions to be accepted as cases
-			template<class F>
-			constexpr MatchResolver<false, T, Fns..., std::enable_if_t<!callable<F>::value, std::decay_t<F>>> operator|(F&& fn) {
+			constexpr MatchResolver<false, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
 				using namespace std;
 				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}
 
 			template <class F>
-			constexpr MatchResolver<true, T, Fns..., F> operator||(F&& fn) {
+			constexpr MatchResolver<true, T, Fns..., impl::decay_t<F>> operator||(F&& fn) {
 				using namespace std;
 				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}

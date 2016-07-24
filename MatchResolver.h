@@ -23,14 +23,14 @@ namespace shl {
 			constexpr MatchResolver(T&& val, std::tuple<Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
 			// Can't implement a "error" destructor because of all the temporaries (no way of enforcing a future match)
 
-			template <class F>
-			constexpr MatchResolver<false, T, Fns..., F> operator|(F&& fn) {
+			template <class F>	
+			constexpr MatchResolver<false, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
 				using namespace std;
 				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}
 
 			template <class F>
-			constexpr MatchResolver<true, T, Fns..., F> operator||(F&& fn) {
+			constexpr MatchResolver<true, T, Fns..., impl::decay_t<F>> operator||(F&& fn) {
 				using namespace std;
 				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}

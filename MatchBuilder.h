@@ -20,14 +20,14 @@ namespace shl {
 
 			// Append the new lambda onto the current list (tuple)
 			template <class F>
-			constexpr MatchBuilder<Args..., F> operator|(F&& fn) {
+			constexpr MatchBuilder<Args..., impl::decay_t<F>> operator|(F&& fn) {
 				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
 
 			// Return the new tuple wrapped in a Matcher object instead of a MatchBuilder
 				// This syntax is possibly just a temporary measure (`\` won't compile)
 			template <class F>
-			constexpr Matcher<Args..., F> operator||(F&& fn) {
+			constexpr Matcher<Args..., impl::decay_t<F>> operator||(F&& fn) {
 				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
 	};

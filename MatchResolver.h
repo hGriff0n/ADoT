@@ -12,7 +12,7 @@ namespace shl {
 	 *		enforced at compile time by the `||` operator and the first bool template. Currently, there is
 	 *		no way of notifying the programmer at compile time of this error.
 	 */
-	template <bool, RES_CLASS Best, class T, class... Fns>
+	template <bool, RES_CLASS Resolver, class T, class... Fns>
 	class MatchResolver {
 		private:
 			T&& val;						// I don't have to worry about `val` "scope-leaking" because MatchResolver's guaranteed to use it in the current scope
@@ -24,13 +24,13 @@ namespace shl {
 			// Can't implement a "error" destructor because of all the temporaries (no way of enforcing a future match)
 
 			template <class F>	
-			constexpr MatchResolver<false, Best, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
+			constexpr MatchResolver<false, Resolver, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
 				using namespace std;
 				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}
 
 			template <class F>
-			constexpr MatchResolver<true, Best, T, Fns..., impl::decay_t<F>> operator||(F&& fn) {
+			constexpr MatchResolver<true, Resolver, T, Fns..., impl::decay_t<F>> operator||(F&& fn) {
 				using namespace std;
 				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}
@@ -39,11 +39,11 @@ namespace shl {
 	/*
 	 * A completed MatchResolver instance. Implements a custom destructor that forwards resolution to the Matcher object
 	 */
-	template <RES_CLASS Best, class T, class... Fns>
-	class MatchResolver<true, Best, T, Fns...> {
+	template <RES_CLASS Resolver, class T, class... Fns>
+	class MatchResolver<true, Resolver, T, Fns...> {
 		private:
 			T&& val;
-			Matcher<Best, Fns...> match;
+			Matcher<Resolver, Fns...> match;
 
 		public:
 			constexpr MatchResolver(T&& val, std::tuple<Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
@@ -51,7 +51,7 @@ namespace shl {
 	};
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
-	template<RES_CLASS Best = impl::__CppResolver, class T> constexpr MatchResolver<false, Best, T> match(T&& val) {
+	template<RES_CLASS Resolver = impl::__CppResolver, class T> constexpr MatchResolver<false, Resolver, T> match(T&& val) {
 		return std::forward<T>(val);
 	}
 }

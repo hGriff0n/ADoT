@@ -10,7 +10,7 @@ namespace shl {
 	 *	match patterns. A final call to `||` must be performed in order to generate the
 	 *	finalized Matcher (No way of getting around this AFAIK).
 	 */
-	template <RES_CLASS Best, class... Args>
+	template <RES_CLASS Resolver, class... Args>
 	class MatchBuilder {
 		private:
 			std::tuple<Args...> fns;
@@ -20,21 +20,21 @@ namespace shl {
 
 			// Append the new lambda onto the current list (tuple)
 			template <class F>
-			constexpr MatchBuilder<Best, Args..., impl::decay_t<F>> operator|(F&& fn) {
+			constexpr MatchBuilder<Resolver, Args..., impl::decay_t<F>> operator|(F&& fn) {
 				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
 
 			// Return the new tuple wrapped in a Matcher object instead of a MatchBuilder
 				// This syntax is possibly just a temporary measure (`\` won't compile)
 			template <class F>
-			constexpr Matcher<Best, Args..., impl::decay_t<F>> operator||(F&& fn) {
+			constexpr Matcher<Resolver, Args..., impl::decay_t<F>> operator||(F&& fn) {
 				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
 	};
 
 	// Interface function for starting a MatchBuilder chain
-	template<RES_CLASS Best = impl::__CppResolver>
-	constexpr MatchBuilder<Best> match() {
+	template<RES_CLASS Resolver = impl::__CppResolver>
+	constexpr MatchBuilder<Resolver> match() {
 		return std::make_tuple();
 	}
 }

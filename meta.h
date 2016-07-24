@@ -2,6 +2,8 @@
 
 #include "function_traits.h"
 
+#define NOT_FOUND -1
+
 // TODO: Remove when std::apply is implemented
 namespace std {
 	template<class F, class T, std::size_t... I>
@@ -73,13 +75,13 @@ namespace shl {
 
 			// Number of conversions that would be needed to successfully call the function (min is the best match)
 				// Note|TODO: This might be changed once I determine how to better implement resolution
-			static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<impl::decay_t<Params>, Args>::value...>::value : -1;
+			static constexpr size_t level = value ? sizeof...(Params)-num_true<std::is_same<impl::decay_t<Params>, Args>::value...>::value : NOT_FOUND;
 		};
 
 		template<class... Params, class... Args>
 		struct __CallMatcher<false, std::tuple<Params...>, std::tuple<Args...>> {
 			static constexpr bool value = false;
-			static constexpr size_t level = -1;				// A level of 0 indicates a perfect match
+			static constexpr size_t level = NOT_FOUND;				// A level of 0 indicates a perfect match
 		};
 
 

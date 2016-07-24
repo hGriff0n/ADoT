@@ -21,7 +21,7 @@ namespace shl {
 		// The list has been exhuasted
 		template<class T, T val, size_t N, T match >
 		struct __IndexOf<T, val, N, match> {
-			static constexpr size_t value = (match == val) ? N : -1;
+			static constexpr size_t value = (match == val) ? N : NOT_FOUND;
 		};
 
 		/*
@@ -98,17 +98,13 @@ namespace shl {
 				static constexpr auto value = better ? N : I;
 				using type = std::conditional_t<better, F, Curr>;
 		};
-
-
-		/*
-		 * Default struct to determine the best function to match the args
-		 *	Mimics C++ function resolution as much as possible
-		 */
+		
+		// Actual interface struct for c++ resolution. Adds correct index production as expected by Matcher
 		RES_DEF class __CppResolver {
 			using impl = __CppResolverImpl<0, 1, Arg, Fns...>;
 
 			public:
-				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : -1;			// Ensure that `__CppResolver` produces the expected indexing (`__CppResolverImpl` can't produce -1 for "not found")
+				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;			// Check that the chosen function works (`__CppResolverImpl` can't produce "not found")
 		};
 	}
 
@@ -117,7 +113,7 @@ namespace shl {
 	 *	Matcher doesn't destroy it's function list when matching against a passed value allowing it to be reused
 	 *	multiple times if desired without errors.
 	 */
-	template<RES_CLASS Best, class... Fns>
+	template<RES_CLASS Resolver, class... Fns>
 	class Matcher {
 		private:
 			std::tuple<Fns...> fns;
@@ -127,8 +123,7 @@ namespace shl {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
-				constexpr auto best = Best<T, Fns...>::value;
-				constexpr auto index = best != -1 ? best : __IndexOf<bool, true, 0, base_case<Fns>::value...>::value;
+				constexpr auto index = (Resolver<T, Fns...>::value == NOT_FOUND) ? __IndexOf<bool, true, 0, base_case<Fns>::value...>::value : Resolver<T, Fns...>::value;
 
 				// Raise a compiler error if no function was found (Note: don't create a match with > 4 million cases)
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");
@@ -145,8 +140,8 @@ namespace shl {
 	};
 
 	// Pass the value on to the provided matcher object for match resolution
-	template<RES_CLASS Best, class T, class... Args>
-	void match(T&& val, Matcher<Best, Args...>& matcher) {
+	template<RES_CLASS Resolver, class T, class... Args>
+	void match(T&& val, Matcher<Resolver, Args...>& matcher) {
 		matcher.match(std::forward<T>(val));
 	}
 }

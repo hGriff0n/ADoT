@@ -6,11 +6,7 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Add __CppResolverImpl struct thats similar to __Min (would actually take most of min)
-	// Think about changing RES_DEF to class, class, class...
-	// Need to add the ability to produce -1 from
 // TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
-// TODO: Figure out error handling if case selector fails to work (doesn't use the correct protection, etc.)
 
 // TODO: Improve callable/function_traits/et. al. to handle generic lambdas/etc
 // TODO: Add the ability to "return" (get a value) from match

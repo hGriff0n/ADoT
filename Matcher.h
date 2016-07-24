@@ -69,14 +69,34 @@ namespace shl {
 
 
 		/*
-		 * Struct to find the minimum of a template pack at compile time
+		 * Struct to determine the best function to match the arguments according to C++ function resolution rules
+		 * This struct is designed in such a way to be used to recursively "iterate" over the possible functions
+		 *	to simplify the process of determining the "most suitable" function (don't have to reduce to a number)
+		 *
+		 * Note: The default specification handles the singular function case (ie. sizeof...(Fns) == 0)
+		 *		 The first specialization handles the actual iteration among several functions
+		 *		 The second specialization handles the actual resolution comparison
 		 */
-		template<size_t a, size_t b, size_t... ts> struct __Min {
-			static constexpr size_t value = a < b ? __Min<a, ts...>::value : __Min<b, ts...>::value;
+		template<size_t I, size_t N, class Arg, class F, class... Fns>
+		struct __CppResolverImpl {
+			static constexpr auto value = I;
+			using type = F;
 		};
 
-		template<size_t a, size_t b> struct __Min<a, b> {
-			static constexpr size_t value = a < b ? a : b;
+		template<size_t I, size_t N, class Arg, class Curr, class F, class... Fns>
+		struct __CppResolverImpl<I, N, Arg, Curr, F, Fns...> : public __CppResolverImpl<I, N, Arg, Curr, F> {
+			static constexpr auto value = better ? __CppResolverImpl<N, N + 1, Arg, F, Fns...>::value				// The new function was a better match
+												 : __CppResolverImpl<I, N + 1, Arg, Curr, Fns...>::value;			// The old function was a better match
+		};
+
+		template<size_t I, size_t N, class Arg, class Curr, class F>
+		class __CppResolverImpl<I, N, Arg, Curr, F> {
+			protected:
+				static constexpr bool better = takes_args<F, Arg>::level < takes_args<Curr, Arg>::level;		// Note: Change this line to change resolution handling
+
+			public:
+				static constexpr auto value = better ? N : I;
+				using type = std::conditional_t<better, F, Curr>;
 		};
 
 
@@ -84,12 +104,11 @@ namespace shl {
 		 * Default struct to determine the best function to match the args
 		 *	Mimics C++ function resolution as much as possible
 		 */
-		RES_DEF struct __CppResolver {
-			private:
-				static constexpr auto min = impl::__Min<takes_args<Fns, Arg>::level...>::value;
+		RES_DEF class __CppResolver {
+			using impl = __CppResolverImpl<0, 1, Arg, Fns...>;
 
 			public:
-				static constexpr auto value = min != -1 ? impl::__IndexOf<size_t, min, 0, takes_args<Fns, Arg>::level...>::value : -1;		// min == -1 iff takes_args<Fns, T> == -`
+				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : -1;			// Ensure that `__CppResolver` produces the expected indexing (`__CppResolverImpl` can't produce -1 for "not found")
 		};
 	}
 

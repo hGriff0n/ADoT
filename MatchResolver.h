@@ -1,4 +1,5 @@
 #pragma once
+#pragma warning (disable:4814)				// Disable the c++14 warning about "constexpr not implying const"
 
 #include "Matcher.h"
 
@@ -14,7 +15,7 @@ namespace shl {
 	template <bool, class T, class... Fns>
 	class MatchResolver {
 		private:
-			T&& val;
+			T&& val;						// I don't have to worry about `val` "scope-leaking" because MatchResolver's guaranteed to use it in the current scope
 			std::tuple<Fns...> match;
 
 		public:
@@ -24,12 +25,14 @@ namespace shl {
 
 			template <class F>
 			constexpr MatchResolver<false, T, Fns..., F> operator|(F&& fn) {
-				return{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
+				using namespace std;
+				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}
 
 			template <class F>
 			constexpr MatchResolver<true, T, Fns..., F> operator||(F&& fn) {
-				return{ std::forward<T>(val), std::tuple_cat(match, std::make_tuple(fn)) };
+				using namespace std;
+				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
 			}
 	};
 
@@ -49,6 +52,6 @@ namespace shl {
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
 	template<class T> constexpr MatchResolver<false, T> match(T&& val) {
-		return{ std::forward<T>(val) };
+		return std::forward<T>(val);
 	}
 }

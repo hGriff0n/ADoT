@@ -1,4 +1,5 @@
 #pragma once
+#pragma warning (disable:4814)				// Disable the c++14 warning about "constexpr not implying const"
 
 #include "meta.h"
 
@@ -31,7 +32,7 @@ namespace shl {
 		 *	Can clean up SFINAE functions when `if constexpr` is implemented
 		 */
 		struct __MatchHelper {
-			// Dispatch to the base case (is_callable<F> == true if base_case<F> == true)
+			// Dispatch to the base case (callable<F> == true if base_case<F> == true)
 			template <class F, class T>
 			static std::enable_if_t<base_case<F>::value> invoke(F&& fn, T&& val) {
 				fn();
@@ -39,7 +40,7 @@ namespace shl {
 
 			// Dispatch to a function that accepts arguments
 			template <class F, class T>
-			static std::enable_if_t<!base_case<F>::value && is_callable<F>::value> invoke(F&& fn, T&& val) {
+			static std::enable_if_t<!base_case<F>::value && callable<F>::value> invoke(F&& fn, T&& val) {
 				fn(std::forward<T>(val));
 			}
 
@@ -51,7 +52,7 @@ namespace shl {
 
 			// Dispatch to a non-function value
 			template <class F, class T>
-			static std::enable_if_t<!is_callable<F>::value> invoke(F&& fn, T&& val) {
+			static std::enable_if_t<!callable<F>::value> invoke(F&& fn, T&& val) {
 				fn;
 			}
 
@@ -101,11 +102,11 @@ namespace shl {
 
 				// Find the index of the first function that either takes a `T` or is the base case
 				constexpr auto min = __Min<takes_args<Fns, T>::level...>::value;								// Find the minimum number of conversions
-				constexpr auto index = __Control<size_t>::ifelse(min != -1,
-					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,								// Take the best match if one exists
+				constexpr auto index = __Control<size_t>::ifelse(min != -1,										// If a minimum exists
+					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,								// Take the best match
 					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);									// Otherwise take the base case
 
-				// Raise a compiler error if no function was found
+				// Raise a compiler error if no function was found (Note: don't create a match with > 4 million cases)
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");
 
 				// Call the choosen function

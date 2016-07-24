@@ -1,6 +1,6 @@
 #pragma once
 
-#include "has_interface.h"
+#include "function_traits.h"
 
 // TODO: Remove when std::apply is implemented
 namespace std {
@@ -60,23 +60,25 @@ namespace shl {
 		template <bool... bs>
 		struct num_true : count_where_eq<bool, true, bs...> {};
 
+
 		// Impl class to enable safe handling of argument and parameter lists that don't match in arity
 		template<bool, class, class> struct __CallMatcher;
 
 		template<class... Params, class... Args>
 		struct __CallMatcher<true, std::tuple<Params...>, std::tuple<Args...>> {
 			// Can the function be called with the arguments (ie. do the arg types match or can be converted to the function types)
-			// Note: The ordering of Param and Arg is important in std::is_convertible<From, To>
+				// Note: The ordering of Param and Arg is important in std::is_convertible
 			static constexpr bool value = sizeof...(Params) == num_true<std::is_convertible<Args, Params>::value...>::value;
 
 			// Number of conversions that would be needed to successfully call the function (min is the best match)
+				// Note|TODO: This might be changed once I determine how to better implement resolution
 			static constexpr size_t level = value ? sizeof...(Params) - num_true<std::is_same<impl::decay_t<Params>, Args>::value...>::value : -1;
 		};
 
 		template<class... Params, class... Args>
 		struct __CallMatcher<false, std::tuple<Params...>, std::tuple<Args...>> {
 			static constexpr bool value = false;
-			static constexpr size_t level = -1;		// A level of 0 indicates a perfect match
+			static constexpr size_t level = -1;				// A level of 0 indicates a perfect match
 		};
 
 
@@ -85,6 +87,11 @@ namespace shl {
 		struct __TakesArgs : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 		template<class Fn, class... Args>
 		struct __TakesArgs<false, Fn, Args...> : __CallMatcher<false, Fn, Args...> {};
+
+// Disable integral overflow warning on line 108 (the situation will never occur unless someone tries to call a 4 million arg function, but at that point something's wrong anyways)
+		// It will never occur because the `call_matcher<arg_types, decom_type>::level` only equals `-1` if decomposition is `false` or there's a 4 million arg function being called
+#pragma warning (push)
+#pragma warning (disable:4307)
 
 		// Special overload to allow for tuple decomposition
 		template<class Fn, class... Args>
@@ -98,9 +105,11 @@ namespace shl {
 				static constexpr bool decomposition = call_matcher<arg_types, decom_type>::value;
 
 			public:
+				// Add `1` to a decomposition to allow for matching the tuple to be selected as the better fit
+				static constexpr size_t level = decomposition ? (call_matcher<arg_types, decom_type>::level + 1) : call_matcher<arg_types, tuple_type>::level;
 				static constexpr bool value = accepts_tuple || decomposition;
-				static constexpr size_t level = decomposition ? call_matcher<arg_types, decom_type>::level + 1 : call_matcher<arg_types, tuple_type>::level;
 		};
+#pragma warning (pop)
 
 
 		// Impl class to enable safe handling of types that aren't callable
@@ -127,15 +136,15 @@ namespace shl {
 
 	// SFINAE wrapper that extracts the function arg types for call_matcher
 	template<class Fn, class... Args>
-	struct takes_args : impl::__TakesArgs<is_callable<Fn>::value, Fn, impl::decay_t<Args>...> {};
+	struct takes_args : impl::__TakesArgs<callable<Fn>::value, Fn, impl::decay_t<Args>...> {};
 
 
 	// Simple wrapper that recognizes the base case function
 	template<class Fn>
-	struct base_case : impl::__BaseCase<is_callable<Fn>::value, Fn> {};
+	struct base_case : impl::__BaseCase<callable<Fn>::value, Fn> {};
 
 
 	// Simple wrapper to test whether the object can produce a given type 
 	template<class Fn, class Ret>
-	struct can_produce : impl::__CanProduce<is_callable<Fn>::value, Fn, Ret> {};
+	struct can_produce : impl::__CanProduce<callable<Fn>::value, Fn, Ret> {};
 }

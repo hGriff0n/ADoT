@@ -19,7 +19,7 @@ namespace shl {
 	struct function_traits<R(Args...)> {
 		using return_type = R;
 		using arg_types = std::tuple<Args...>;
-		using __arg_types = std::tuple<Args...>;					// This keeps the "this" type for class methods
+		using full_args = std::tuple<Args...>;					// This keeps the "this" type for class methods
 
 		static constexpr size_t arity = sizeof...(Args);
 
@@ -52,7 +52,7 @@ namespace shl {
 		public:
 			using return_type = typename call_type::return_type;
 			using arg_types = typename call_type::arg_types;
-			using __arg_types = typename call_type::__arg_types;
+			using full_args = typename call_type::full_args;
 
 			static constexpr size_t arity = call_type::arity - 1;
 
@@ -68,4 +68,33 @@ namespace shl {
 
 	template <class F>
 	struct function_traits<F&&> : public function_traits<F> {};
+
+
+	/*
+	* Check if the given type is Callable (operator() is defined)
+	*/
+
+	// Match lambdas and std::function
+		// Note: Doesn't work with generic lambdas
+	template <typename F>
+	struct callable {
+		private:
+		using Yes = char;
+		using No = long;
+
+		template <typename T> static constexpr Yes is(decltype(&std::decay_t<T>::operator()));
+		template <typename T> static constexpr No is(...);
+
+		public:
+		static constexpr bool value = (sizeof(is<F>(nullptr)) == sizeof(Yes));
+	};
+
+	// Match raw function
+	template <typename Ret, typename... Args>
+	struct callable<Ret(Args...)> : std::true_type {};
+
+	// Match function pointer
+	template <typename Ret, typename... Args>
+	struct callable<Ret(*)(Args...)> : std::true_type {};
+
 }

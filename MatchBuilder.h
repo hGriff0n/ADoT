@@ -1,4 +1,5 @@
 #pragma once
+#pragma warning (disable:4814)				// Disable the c++14 warning about "constexpr not implying const"
 
 #include "Matcher.h"
 
@@ -20,20 +21,20 @@ namespace shl {
 			// Append the new lambda onto the current list (tuple)
 			template <class F>
 			constexpr MatchBuilder<Args..., F> operator|(F&& fn) {
-				return{ std::tuple_cat(fns, std::make_tuple(std::move(fn))) };
+				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
 
 			// Return the new tuple wrapped in a Matcher object instead of a MatchBuilder
 				// This syntax is possibly just a temporary measure (`\` won't compile)
 			template <class F>
 			constexpr Matcher<Args..., F> operator||(F&& fn) {
-				return{ std::tuple_cat(fns, std::make_tuple(std::move(fn))) };
+				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
 	};
 
 	// Interface function for starting a MatchBuilder chain
 		// Inline functions can be defined in multiple translation units iff the definition is the same
 	inline constexpr MatchBuilder<> match() {
-		return{ std::make_tuple() };
+		return std::make_tuple();
 	}
 }

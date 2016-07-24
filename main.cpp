@@ -9,7 +9,6 @@
 // TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
 	// I'll probably need to add in a "meta" way of determining better-ness
 
-// TODO: Improve implementation and organization
 // TODO: Improve function_traits/et. al. to handle generic lambdas/etc
 // TODO: Figure out how to handle non-lambdas
 	// Can't convert from `initializer_list` to `MatchResolver<...>` (How is this even happening?)
@@ -35,7 +34,7 @@ int main() {
 	const char* c_str = str.c_str();
 	auto f = 3.3f;
 
-	std::cout << "Expected          - Recieved\nTuple Not Applied - ";
+	std::cout << "Expected          - Received\nTuple Not Applied - ";
 	shl::match(tup)
 		| [](int i, std::string msg) { std::cout << "Tuple Applied"; }
 		| [](std::tuple<int, std::string> tup) { std::cout << "Tuple Not Applied\n"; }

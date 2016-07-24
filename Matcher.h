@@ -3,6 +3,9 @@
 
 #include "meta.h"
 
+#define RES_CLASS template<class, class...> class												// Template definition to accept a resolution meta-struct as a template parameter
+#define RES_DEF template<class Arg, class... Fns>												// Template definition to declare a resolution meta-struct
+
 namespace shl {
 	namespace impl {
 
@@ -64,15 +67,6 @@ namespace shl {
 
 		};
 
-		/*
-		 * Struct that provides various compile time control structures
-		 */
-		template<class T>
-		struct __Control {
-			static constexpr T unless(T a, T b, T c) { return a == b ? c : a; }
-			static constexpr T ifneq(T a, T b, T c, T d) { return a != b ? c : d; }
-			static constexpr T ifelse(bool s, T a, T b) { return s ? a : b; }
-		};
 
 		/*
 		 * Struct to find the minimum of a template pack at compile time
@@ -84,6 +78,19 @@ namespace shl {
 		template<size_t a, size_t b> struct __Min<a, b> {
 			static constexpr size_t value = a < b ? a : b;
 		};
+
+
+		/*
+		 * Default struct to determine the best function to match the args
+		 *	Mimics C++ function resolution as much as possible
+		 */
+		RES_DEF struct __CppResolver {
+			private:
+				static constexpr auto min = impl::__Min<takes_args<Fns, Arg>::level...>::value;
+
+			public:
+				static constexpr auto value = min != -1 ? impl::__IndexOf<size_t, min, 0, takes_args<Fns, Arg>::level...>::value : -1;		// min == -1 iff takes_args<Fns, T> == -`
+		};
 	}
 
 	/*
@@ -91,7 +98,7 @@ namespace shl {
 	 *	Matcher doesn't destroy it's function list when matching against a passed value allowing it to be reused
 	 *	multiple times if desired without errors.
 	 */
-	template <class... Fns>
+	template<RES_CLASS Best, class... Fns>
 	class Matcher {
 		private:
 			std::tuple<Fns...> fns;
@@ -101,10 +108,8 @@ namespace shl {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
-				constexpr auto min = __Min<takes_args<Fns, T>::level...>::value;								// Find the minimum number of conversions
-				constexpr auto index = __Control<size_t>::ifelse(min != -1,										// If a minimum exists
-					__IndexOf<size_t, min, 0, takes_args<Fns, T>::level...>::value,								// Take the best match
-					__IndexOf<bool, true, 0, base_case<Fns>::value...>::value);									// Otherwise take the base case
+				constexpr auto best = Best<T, Fns...>::value;
+				constexpr auto index = best != -1 ? best : __IndexOf<bool, true, 0, base_case<Fns>::value...>::value;
 
 				// Raise a compiler error if no function was found (Note: don't create a match with > 4 million cases)
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");
@@ -121,8 +126,8 @@ namespace shl {
 	};
 
 	// Pass the value on to the provided matcher object for match resolution
-	template<class T, class... Args>
-	void match(T&& val, Matcher<Args...>& matcher) {
+	template<RES_CLASS Best, class T, class... Args>
+	void match(T&& val, Matcher<Best, Args...>& matcher) {
 		matcher.match(std::forward<T>(val));
 	}
 }

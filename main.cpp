@@ -7,7 +7,6 @@
 #include "MatchResolver.h"
 
 // TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
-	// I'll probably need to add in a "meta" way of determining better-ness
 
 // TODO: Improve callable/function_traits/et. al. to handle generic lambdas/etc
 // TODO: Add the ability to "return" (get a value) from match
@@ -25,6 +24,9 @@
 // TODO: Figure out how to turn this into a benchmarking practice
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
 
+RES_DEF struct BaseCaseSelector {
+	static constexpr auto value = shl::impl::__IndexOf<bool, true, 0, shl::base_case<Fns>::value...>::value;
+};
 
 int main() {
 	auto tup = std::make_tuple(3, "Hello");
@@ -40,6 +42,11 @@ int main() {
 
 	std::cout << "Tuple Applied     - ";
 	shl::match(tup)
+		| [](int i, std::string msg) { std::cout << "Tuple Applied\n"; }
+		|| []() { std::cout << "Base case\n"; };
+
+	std::cout << "Base Case         - ";
+	shl::match<BaseCaseSelector>(tup)
 		| [](int i, std::string msg) { std::cout << "Tuple Applied\n"; }
 		|| []() { std::cout << "Base case\n"; };
 

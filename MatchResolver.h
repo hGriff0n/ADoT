@@ -1,7 +1,7 @@
 #pragma once
 #pragma warning (disable:4814)				// Disable the c++14 warning about "constexpr not implying const"
 
-#include "Matcher.h"
+#include "MatchBuilder.h"
 
 namespace shl {
 	/*
@@ -16,23 +16,21 @@ namespace shl {
 	class MatchResolver {
 		private:
 			T&& val;						// I don't have to worry about `val` "scope-leaking" because MatchResolver's guaranteed to use it in the current scope
-			std::tuple<Fns...> match;
+			MatchBuilder<Resolver, Fns...> builder;
 
 		public:
-			constexpr MatchResolver(T&& val) : val{ std::forward<T>(val) }, match{ std::make_tuple() } {}
-			constexpr MatchResolver(T&& val, std::tuple<Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
+			constexpr MatchResolver(T&& val) : val{ std::forward<T>(val) }, builder{ std::make_tuple() } {}
+			constexpr MatchResolver(T&& val, MatchBuilder<Resolver, Fns...>&& fns) : val{ std::forward<T>(val) }, builder{ std::move(fns) } {}
 			// Can't implement a "error" destructor because of all the temporaries (no way of enforcing a future match)
 
 			template <class F>	
 			constexpr MatchResolver<false, Resolver, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
-				using namespace std;
-				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
+				return{ std::forward<T>(val), builder | std::move(fn) };
 			}
 
 			template <class F>
 			constexpr MatchResolver<true, Resolver, T, Fns..., impl::decay_t<F>> operator||(F&& fn) {
-				using namespace std;
-				return{ forward<T>(val), tuple_cat(move(match), make_tuple(move(fn))) };
+				return{ std::forward<T>(val), builder || std::move(fn) };
 			}
 	};
 
@@ -46,7 +44,7 @@ namespace shl {
 			Matcher<Resolver, Fns...> match;
 
 		public:
-			constexpr MatchResolver(T&& val, std::tuple<Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
+			constexpr MatchResolver(T&& val, Matcher<Resolver, Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
 			~MatchResolver() { match(std::forward<T>(val)); }
 	};
 

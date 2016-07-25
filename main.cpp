@@ -11,12 +11,12 @@
 	// http://www.dcs.bbk.ac.uk/~roger/cpp/week20.htm
 // TODO: Add in support for default values
 
-// TODO: Improve callable/function_traits/et. al. to handle generic lambdas/etc
 // TODO: Add the ability to "return" (get) a value from match
 // TODO: Actually work on ADT syntax
 
+// TODO: Look into improving implementation ala (https://github.com/pfultz2/Fit)
 // TODO: Improve meta structs with template<auto> once support is added
-// TODO: Replace __IndexOf and __Min with constexpr once support is added (iterating over initalizer_list)
+// TODO: Replace __IndexOf/count_where_eq with constexpr once support is added (iterating over initalizer_list)
 // TODO: Replace num_true with fold expressions once support is added
 // TODO: Rework match to work for `std::variant` and `std::any` once support is added
 // TODO: Find a way to warn about missing '||' in MatchResolver			<- Not possible AFAIK
@@ -29,6 +29,7 @@
 RES_DEF struct BaseCaseSelector {
 	static constexpr auto value = shl::impl::__IndexOf<bool, true, 0, shl::base_case<Fns>::value...>::value;
 };
+
 
 int main() {
 	auto tup = std::make_tuple(3, "Hello");

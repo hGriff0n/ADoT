@@ -10,9 +10,9 @@ namespace shl {
 	 *	NOTE: MatchResolver's pattern **must** end with a `||` call since match resolution is performed in
 	 *		MatchResolver's destructor which must be called only once for correctness. This distinction is
 	 *		enforced at compile time by the `||` operator and the first bool template. Currently, there is
-	 *		no way of notifying the programmer at compile time of this error.
+	 *		no way of notifying the programmer at compile time if they've missed using the `||`.
 	 */
-	template <bool, RES_CLASS Resolver, class T, class... Fns>
+	template <RES_CLASS Resolver, class T, class... Fns>
 	class MatchResolver {
 		private:
 			T&& val;						// I don't have to worry about `val` "scope-leaking" because MatchResolver's guaranteed to use it in the current scope
@@ -21,35 +21,22 @@ namespace shl {
 		public:
 			constexpr MatchResolver(T&& val) : val{ std::forward<T>(val) }, builder{ std::make_tuple() } {}
 			constexpr MatchResolver(T&& val, MatchBuilder<Resolver, Fns...>&& fns) : val{ std::forward<T>(val) }, builder{ std::move(fns) } {}
-			// Can't implement a "error" destructor because of all the temporaries (no way of enforcing a future match)
-
-			template <class F>	
-			constexpr MatchResolver<false, Resolver, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
-				return{ std::forward<T>(val), builder | std::move(fn) };
-			}
+			// Can't implement an "error" destructor because of all the temporaries (no way of enforcing a future match)
 
 			template <class F>
-			constexpr MatchResolver<true, Resolver, T, Fns..., impl::decay_t<F>> operator||(F&& fn) {
-				return{ std::forward<T>(val), builder || std::move(fn) };
+			constexpr MatchResolver<Resolver, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
+				return{ std::forward<T>(val), builder | fn };			// Should I `forward` or `move` the function
 			}
-	};
 
-	/*
-	 * A completed MatchResolver instance. Implements a custom destructor that forwards resolution to the Matcher object
-	 */
-	template <RES_CLASS Resolver, class T, class... Fns>
-	class MatchResolver<true, Resolver, T, Fns...> {
-		private:
-			T&& val;
-			Matcher<Resolver, Fns...> match;
-
-		public:
-			constexpr MatchResolver(T&& val, Matcher<Resolver, Fns...>&& fns) : val{ std::forward<T>(val) }, match{ std::move(fns) } {}
-			~MatchResolver() { match(std::forward<T>(val)); }
+			// Handle resolution immediately once the `||` operator is used
+			template<class F>
+			constexpr auto operator||(F&& fn) {
+				return (builder || fn).match(std::forward<T>(val));
+			}
 	};
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
-	template<RES_CLASS Resolver = impl::__CppResolver, class T> constexpr MatchResolver<false, Resolver, T> match(T&& val) {
+	template<RES_CLASS Resolver = impl::__CppResolver, class T> constexpr MatchResolver<Resolver, T> match(T&& val) {
 		return std::forward<T>(val);
 	}
 }

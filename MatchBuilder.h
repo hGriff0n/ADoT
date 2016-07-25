@@ -18,21 +18,20 @@ namespace shl {
 			template<class F>
 			//constexpr std::tuple<Args..., impl::decay_t<F>>&& add(F&& fn) {
 			constexpr auto add_case(F&& fn) {
-				using namespace std;
-				return tuple_cat(move(fns), make_tuple(move(fn)));
+				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
 
 		public:
 			constexpr MatchBuilder(std::tuple<Args...>&& fns) : fns{ fns } {}
 			constexpr MatchBuilder(MatchBuilder<Resolver, Args...>&& m) : fns{ std::move(m.fns) } {}
 
-			// Append the new lambda onto the current list (tuple)
+			// Append the new case onto the current list 
 			template <class F>
 			constexpr MatchBuilder<Resolver, Args..., impl::decay_t<F>> operator|(F&& fn) {
 				return add_case(fn);
 			}
 
-			// Return the new tuple wrapped in a Matcher object instead of a MatchBuilder
+			// Add the new case to the current list and return the list as a Matcher instead of a MatchBuilder
 				// This syntax is possibly just a temporary measure (`\` won't compile)
 			template <class F>
 			constexpr Matcher<Resolver, Args..., impl::decay_t<F>> operator||(F&& fn) {

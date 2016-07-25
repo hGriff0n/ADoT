@@ -30,6 +30,10 @@ namespace shl {
 			constexpr Matcher<Resolver, Args..., impl::decay_t<F>> operator||(F&& fn) {
 				return std::tuple_cat(std::move(fns), std::make_tuple(std::move(fn)));
 			}
+
+			// Delete copy and assignment functions to prevent compilation without a ending operator|| call
+			constexpr MatchBuilder(const MatchBuilder&) = delete;
+			constexpr MatchBuilder& operator=(const MatchBuilder&) = delete;
 	};
 
 	// Interface function for starting a MatchBuilder chain

@@ -18,7 +18,6 @@ namespace shl {
 			static constexpr size_t value = (match == val) ? N : __IndexOf<T, val, N + 1, matches...>::value;
 		};
 
-		// The list has been exhuasted
 		template<class T, T val, size_t N, T match >
 		struct __IndexOf<T, val, N, match> {
 			static constexpr size_t value = (match == val) ? N : NOT_FOUND;

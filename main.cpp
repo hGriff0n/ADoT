@@ -6,24 +6,26 @@
 #include "MatchBuilder.h"
 #include "MatchResolver.h"
 
-// TODO: Get match selection to better follow C++ function resolution (ie. level(a) == level(b), const T& vs T)
+// TODO: Get match selection to better follow C++ function resolution
+	// https://accu.org/index.php/journals/268
+	// http://www.dcs.bbk.ac.uk/~roger/cpp/week20.htm
+// TODO: Add in support for default values
 
 // TODO: Improve callable/function_traits/et. al. to handle generic lambdas/etc
-// TODO: Add the ability to "return" (get a value) from match
+// TODO: Add the ability to "return" (get) a value from match
 // TODO: Actually work on ADT syntax
 
-// TODO: Figure out if it would be possible and beneficial to add match resolution tweaking from client code
-	// If I add in the "meta"-better struct, then I can add it as a parameter
 // TODO: Improve meta structs with template<auto> once support is added
 // TODO: Replace __IndexOf and __Min with constexpr once support is added (iterating over initalizer_list)
 // TODO: Replace num_true with fold expressions once support is added
 // TODO: Rework match to work for `std::variant` and `std::any` once support is added
-// TODO: Find a way to warn about missing '||'			<- Not possible AFAIK
-// TODO: Find a way to remove the need for '||' syntax	<- Not possible AFAIK
+// TODO: Find a way to warn about missing '||' in MatchResolver			<- Not possible AFAIK
+// TODO: Find a way to remove the need for '||' syntax					<- Not possible AFAIK
 
 // TODO: Figure out how to turn this into a benchmarking practice
 // Turn this into a practice on benchmarking (and explore the improvements of various c++ facilities, ie. && vs const &)
 
+// Selector that always calls the base case
 RES_DEF struct BaseCaseSelector {
 	static constexpr auto value = shl::impl::__IndexOf<bool, true, 0, shl::base_case<Fns>::value...>::value;
 };

@@ -33,6 +33,12 @@ namespace shl {
 			constexpr auto operator||(F&& fn) {
 				return (builder || fn).match(std::forward<T>(val));
 			}
+
+
+			// Comment out to allow for "match-currying" (I need to fix `val` to ensure no leakage first)
+			constexpr MatchResolver(MatchResolver&&) = delete;
+			constexpr MatchResolver(const MatchResolver&) = delete;
+			constexpr MatchResolver& operator=(const MatchResolver&) = delete;
 	};
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)

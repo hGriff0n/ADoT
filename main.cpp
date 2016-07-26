@@ -19,7 +19,7 @@
 // TODO: Replace __IndexOf/count_where_eq with constexpr once support is added (iterating over initalizer_list)
 // TODO: Replace num_true with fold expressions once support is added
 // TODO: Rework match to work for `std::variant` and `std::any` once support is added
-// TODO: Find a way to warn about missing '||' in MatchResolver			<- Not possible AFAIK
+// TODO: Find a way to warn about missing '||' in MatchResolver			<- Not possible AFAIK (must be done as a "standalone")
 // TODO: Find a way to remove the need for '||' syntax					<- Not possible AFAIK
 
 // TODO: Figure out how to turn this into a benchmarking practice
@@ -29,7 +29,6 @@
 RES_DEF struct BaseCaseSelector {
 	static constexpr auto value = shl::impl::__IndexOf<bool, true, 0, shl::base_case<Fns>::value...>::value;
 };
-
 
 int main() {
 	auto tup = std::make_tuple(3, "Hello");
@@ -46,51 +45,6 @@ int main() {
 	std::cout << "Tuple Applied     - ";
 	shl::match(tup)
 		| [](int i, std::string msg) { std::cout << "Tuple Applied\n"; }
-		|| []() { std::cout << "Base case\n"; };
-
-	std::cout << "Base Case         - ";
-	shl::match<BaseCaseSelector>(tup)
-		| [](int i, std::string msg) { std::cout << "Tuple Applied\n"; }
-		|| []() { std::cout << "Base case\n"; };
-
-	std::cout << "Cstring Tuple     - ";
-	shl::match(tup)
-		| [](int i, std::string s) { std::cout << "String Tuple\n"; }
-		|| [](int i, const char* s) { std::cout << "Cstring Tuple\n"; };
-
-	std::cout << "Works properly    - ";
-	shl::match(tup)
-		| [](std::tuple<int, std::string> tup) { std::cout << "Does not work\n"; }
-		|| [](std::tuple<int, const char*> tst) { std::cout << "Works Properly\n"; };
-
-	std::cout << "A cstring         - ";
-	shl::match(c_str)
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| [](const char* name) { std::cout << "A cstring\n"; };
-
-	std::cout << "A cstring         - ";
-	shl::match(c_str)
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| [](const char* const& name) { std::cout << "A cstring\n"; };
-
-	std::cout << "A string          - ";
-	shl::match(c_str)
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| []() { std::cout << "Base case\n"; };
-
-	std::cout << "A string          - ";
-	shl::match("World!")
-		| [](const std::string& name) { std::cout << "A string\n"; }
-		|| []() { std::cout << "Base case\n"; };
-
-	std::cout << "A literal         - ";
-	shl::match("World!")
-		| [](const char* l) { std::cout << "A cstring\n"; }
-		|| [](const char (&name)[7]) { std::cout << "A literal\n"; };
-
-	std::cout << "A cstring         - ";
-	shl::match("World!")
-		| [](const char* l) { std::cout << "A cstring\n"; }
 		|| []() { std::cout << "Base case\n"; };
 
 	std::cout << "A string          - ";
@@ -113,11 +67,6 @@ int main() {
 	shl::match(3)
 		| [](long l) { std::cout << "A long\n"; }
 		|| [](short s) { std::cout << "A short\n"; };
-
-	std::cout << "Generics          - ";
-	shl::match(3)
-		| [](auto x) { std::cout << "Generics\n"; }
-		|| []() { std::cout << "Base Case\n"; };
 
 	std::cin.get();
 }

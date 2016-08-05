@@ -71,22 +71,22 @@ namespace shl {
 
 
 	/*
-	* Check if the given type is Callable (operator() is defined)
-	*/
+	 * Check if the given type is Callable (operator() is defined)
+	 */
 
 	// Match lambdas and std::function
 		// Note: Doesn't work with generic lambdas
 	template <typename F>
 	struct callable {
 		private:
-		using Yes = char;
-		using No = long;
+			using Yes = char;
+			using No = long;
 
-		template <typename T> static constexpr Yes is(decltype(&std::decay_t<T>::operator()));
-		template <typename T> static constexpr No is(...);
+			template <typename T> static constexpr Yes is(decltype(&std::decay_t<T>::operator()));
+			template <typename T> static constexpr No is(...);
 
 		public:
-		static constexpr bool value = (sizeof(is<F>(nullptr)) == sizeof(Yes));
+			static constexpr bool value = (sizeof(is<F>(nullptr)) == sizeof(Yes));
 	};
 
 	// Match raw function
@@ -96,5 +96,48 @@ namespace shl {
 	// Match function pointer
 	template <typename Ret, typename... Args>
 	struct callable<Ret(*)(Args...)> : std::true_type {};
+
+
+	// Class to reduce a type list through folds
+	template<class W, class Ts>
+	struct all : std::is_base_of<W, Ts> {};
+
+	template<class W, class T, class... Ts>
+	struct all<W, std::tuple<T, Ts...>>
+		: std::conditional_t<std::is_base_of<W, T>::value, all<W, std::tuple<Ts...>>, std::false_type> {};
+
+	template<class W, class T>
+	struct all<W, std::tuple<T>>
+		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, std::false_type> {};
+
+	template<class W, class Ts>
+	struct one : all<W, Ts> {};
+	
+	template<class W, class T, class... Ts>
+	struct one<W, std::tuple<T, Ts...>>
+		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, one<W, std::tuple<Ts...>>> {};
+
+	template<class W, class T>
+	struct one<W, std::tuple<T>>
+		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, std::false_type> {};
+
+	template<class A, class B>
+	constexpr bool less() { return A::value < B::value; }
+
+
+	/*
+	 * Check if a function that takes the given parameters is callable with the given arguments (ie. all arguments are convertible)
+	 */
+	template<bool, class Params, class Args>
+	struct callable_with_impl : std::false_type {};
+
+	template<class... Params, class... Args>
+	struct callable_with_impl<true, std::tuple<Params...>, std::tuple<Args...>> : all<std::true_type, std::tuple<std::is_convertible<Args, Params>...>> {};
+
+	template<class Params, class Args>
+	struct callable_with : std::false_type {};
+
+	template<class... Params, class... Args>
+	struct callable_with<std::tuple<Params...>, std::tuple<Args...>> : callable_with_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
 
 }

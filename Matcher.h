@@ -66,7 +66,6 @@ namespace shl {
 
 		};
 
-
 		/*
 		 * Struct to determine the best function to match the arguments according to C++ function resolution rules
 		 * This struct is designed in such a way to be used to recursively "iterate" over the possible functions
@@ -77,21 +76,29 @@ namespace shl {
 		 *		 The second specialization handles the actual resolution comparison
 		 */
 		template<size_t I, size_t N, class Arg, class F, class... Fns>
-		struct __CppResolverImpl {
+		struct __DefaultResolverImpl {
 			static constexpr auto value = I;
 			using type = F;
 		};
 
 		template<size_t I, size_t N, class Arg, class Curr, class F, class... Fns>
-		struct __CppResolverImpl<I, N, Arg, Curr, F, Fns...> : public __CppResolverImpl<I, N, Arg, Curr, F> {
-			static constexpr auto value = better ? __CppResolverImpl<N, N + 1, Arg, F, Fns...>::value				// The new function was a better match
-												 : __CppResolverImpl<I, N + 1, Arg, Curr, Fns...>::value;			// The old function was a better match
+		struct __DefaultResolverImpl<I, N, Arg, Curr, F, Fns...> : public __DefaultResolverImpl<I, N, Arg, Curr, F> {
+			static constexpr auto value = better ? __DefaultResolverImpl<N, N + 1, Arg, F, Fns...>::value				// The new function was a better match
+												 : __DefaultResolverImpl<I, N + 1, Arg, Curr, Fns...>::value;			// The old function was a better match
 		};
 
 		template<size_t I, size_t N, class Arg, class Curr, class F>
-		class __CppResolverImpl<I, N, Arg, Curr, F> {
+		class __DefaultResolverImpl<I, N, Arg, Curr, F> {
 			protected:
-				static constexpr bool better = takes_args<F, Arg>::level < takes_args<Curr, Arg>::level;		// Note: Change this line to change resolution handling
+				// Helper members to simplify better calculation
+				static constexpr size_t take_level_F = takes_args<F, Arg>::level;		// If take(F) < take(Curr), then F is automatically a better function choice
+				static constexpr size_t take_level_C = takes_args<Curr, Arg>::level;	// Otherwise if take(F) = take(Curr)
+				//static constexpr size_t arg_rank_F = match_rank<F, Arg>::value;		// Then match(F) < match(Curr) means that F is the better function choice
+				//static constexpr size_t arg_rank_C = match_rank<Curr, Arg>::value;	// Where match(F) determines C++ resolution matching <- TODO: Improve
+
+				// Actual better definition
+				//static constexpr bool better = (take_level_F < take_level_C) || (take_level_F == take_level_C && arg_rank_F < arg_rank_C);
+				static constexpr bool better = (take_level_F < take_level_c) || (take_level_F == take_level_C && false);
 
 			public:
 				static constexpr auto value = better ? N : I;
@@ -99,12 +106,14 @@ namespace shl {
 		};
 		
 		// Actual interface struct for c++ resolution. Adds correct index production as expected by Matcher
-		RES_DEF class __CppResolver {
-			using impl = __CppResolverImpl<0, 1, Arg, Fns...>;
+		RES_DEF class DefaultResolver {
+			using impl = __DefaultResolverImpl<0, 1, Arg, Fns...>;
 
 			public:
-				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;			// Check that the chosen function works (`__CppResolverImpl` can't produce "not found")
+				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;			// Check that the chosen function works (`__DefaultResolverImpl` can't produce "not found")
 		};
+
+		// TODO: Add strict resolver that asserts when ambiguous overload found (ie. f(long) and f(short), Default takes first)
 	}
 
 	/*

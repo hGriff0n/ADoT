@@ -113,6 +113,34 @@ namespace shl {
 				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;			// Check that the chosen function works (`__DefaultResolverImpl` can't produce "not found")
 		};
 
+
+		template<size_t I, size_t N, class Arg, class F, class... Fns>
+		struct __BetterResolverImpl {
+			static constexpr auto value = I;
+			using type = F;
+		};
+
+		template<size_t I, size_t N, class Arg, class Curr, class F, class... Fns>
+		struct __BetterResolverImpl<I, N, Arg, Curr, F, Fns...> : public __BetterResolverImpl<I, N, Arg, Curr, F> {
+			static constexpr auto value = better ? __DefaultResolverImpl<N, N + 1, Arg, F, Fns...>::value		// The new function was a better match
+				: __DefaultResolverImpl<I, N + 1, Arg, Curr, Fns...>::value;									// The old function was a better match
+		};
+
+		template<size_t I, size_t N, class Arg, class Curr, class F>
+		class __BetterResolverImpl<I, N, Arg, Curr, F> {
+			static constexpr bool better = BetterMatch<Curr, F, Arg>::value;
+			public:
+				static constexpr size_t value = better ? N : I;
+				using type = std::conditional_t<better, F, Curr>;
+		};
+
+
+		RES_DEF class BetterResolver {
+			using impl = __BetterResolverImpl<0, 1, Arg, Fns...>;
+
+			public:
+				static constexpr auto value = shl::takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;
+		};
 		// TODO: Add strict resolver that asserts when ambiguous overload found (ie. f(long) and f(short), Default takes first)
 	}
 

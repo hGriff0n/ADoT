@@ -3,6 +3,17 @@
 #include <tuple>
 
 namespace shl {
+	// Preserve typing for string literals (std::decay strips away the size, etc.)
+	template<class Arg>
+	struct decay : std::decay<Arg> {};
+
+	template<class C, size_t N>
+	struct decay<C(&)[N]> {
+		using type = C(&)[N];
+	};
+
+	template<class T>
+	using decay_t = typename decay<T>::type;
 
 	/*
 	 * type_traits struct for functions and function objects
@@ -98,7 +109,11 @@ namespace shl {
 	struct callable<Ret(*)(Args...)> : std::true_type {};
 
 
-	// Class to reduce a type list through folds
+	/*
+	 * Reduce a type list through folds
+	 *	all: check that all types in Ts inherit from W (Note: W inherits from W)
+	 *	one: check that one type in Ts inherits from W
+	 */
 	template<class W, class Ts>
 	struct all : std::is_base_of<W, Ts> {};
 
@@ -121,23 +136,75 @@ namespace shl {
 	struct one<W, std::tuple<T>>
 		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, std::false_type> {};
 
+	// Use less than in templates
 	template<class A, class B>
 	constexpr bool less() { return A::value < B::value; }
+
+	template<class...> struct sfinae { using type = void; };
 
 
 	/*
 	 * Check if a function that takes the given parameters is callable with the given arguments (ie. all arguments are convertible)
 	 */
+	// Handles argument level matching
 	template<bool, class Params, class Args>
 	struct callable_with_impl : std::false_type {};
 
 	template<class... Params, class... Args>
 	struct callable_with_impl<true, std::tuple<Params...>, std::tuple<Args...>> : all<std::true_type, std::tuple<std::is_convertible<Args, Params>...>> {};
 
-	template<class Params, class Args>
-	struct callable_with : std::false_type {};
+	// Allow callable_with to work on functions directly
+	template<class F, class Args, class=void>
+	struct callable_with_helper : std::false_type {};
+
+	template<class F, class... Args>
+	struct callable_with_helper<F, std::tuple<Args...>, typename sfinae<decltype(std::declval<F>()(std::declval<Args>()...))>::type> : std::true_type {};
+
+	// Interface struct
+	template<class F, class Args>
+	struct callable_with : callable_with_helper<F, Args> {};
 
 	template<class... Params, class... Args>
 	struct callable_with<std::tuple<Params...>, std::tuple<Args...>> : callable_with_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
 
+
+	/*
+	 * Metastructs to determine the relative ordering of two parameters according to overload resolution rules
+	 */
+	// Test if F -> T is possible through user conversion operator
+	template<class T, class F>
+	struct IsUserConvertable : std::false_type {};
+
+	// Test if F -> T is possible through user conversion operator
+	template<class T, class F>
+	struct IsStdConvertable : std::is_convertible<F, T> {};
+
+	// Test if F -> T is a numeric promotion
+	template<class F, class T>
+	struct IsPromotion : std::false_type {};
+	template<> struct IsPromotion<float, double> : std::true_type {};
+	template<> struct IsPromotion<char, int> : std::true_type {};
+	template<> struct IsPromotion<short, int> : std::true_type {};
+	template<> struct IsPromotion<bool, int> : std::true_type {};
+	// TODO: Complete implementation (unsigned, whcar_t, enums, bit fields)
+
+	template<class F, class T>
+	struct IsExactMatch : std::is_same<shl::decay_t<F>, shl::decay_t<T>> {};
+
+	template<class F, class T>
+	struct ConvRank {
+		// The standard says worst, but that's not working for now
+		//static constexpr size_t value = IsUserConvertable<F, T>::value ? 3 : IsStdConvertable<F, T>::value ? 2 : IsPromotion<F, T>::value ? 1 : IsExactMatch<F, T>::value ? 0 : -1;
+		static constexpr size_t value = IsUserConvertable<F, T>::value ? 3 : IsExactMatch<F, T>::value ? 0 : IsPromotion<F, T>::value ? 1 : IsStdConvertable<F, T>::value ? 2 : -1;
+	};
+
+	template<class F0_Param, class F1_Param, class Arg>
+	struct IsBetterArg : std::conditional_t<less<ConvRank<Arg, F1_Param>, ConvRank<Arg, F0_Param>>(), std::true_type, std::false_type> {};
+
+	template<class F0_Param, class F1_Param, class Arg>
+	struct IsEqArg : std::conditional_t<ConvRank<Arg, F0_Param>::value == ConvRank<Arg, F1_Param>::value, std::true_type, std::false_type> {};
+
+	template<class F0_Param, class F1_Param, class Arg>
+	struct IsBetterOrEqArg : std::conditional_t<std::is_base_of<std::true_type, IsBetterArg<F0_Param, F1_Param, Arg>>::value
+		|| std::is_base_of<std::true_type, IsEqArg<F0_Param, F1_Param, Arg>>::value, std::true_type, std::false_type> {};
 }

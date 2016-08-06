@@ -24,7 +24,7 @@ namespace shl {
 			// Can't implement an "error" destructor because of all the temporaries (no way of enforcing a future match)
 
 			template <class F>
-			constexpr MatchResolver<Resolver, T, Fns..., impl::decay_t<F>> operator|(F&& fn) {
+			constexpr MatchResolver<Resolver, T, Fns..., shl::decay_t<F>> operator|(F&& fn) {
 				return{ std::forward<T>(val), builder | fn };			// Should I `forward` or `move` the function
 			}
 

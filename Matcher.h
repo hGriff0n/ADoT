@@ -3,8 +3,16 @@
 
 #include "meta.h"
 
+// Macros to ease resolver creation and use in templates
 #define RES_CLASS template<class, class...> class												// Template definition to accept a resolution meta-struct as a template parameter
-#define RES_DEF template<class Arg, class... Fns>												// Template definition to declare a resolution meta-struct
+#define RES_DEF template<class Arg, class... Fns> class											// Template definition to declare a resolution meta-struct
+
+// Template definitons for ResolverImpl classes
+#define RES_IMPL template<size_t I, size_t N, class Arg, class F, class... Fns> struct 									// Base case
+#define RES_IMPL_R(name) template<size_t I, size_t N, class Arg, class Curr, class F, class... Fns> \
+	struct name<I, N, Arg, Curr, F, Fns...> : name<I, N, Arg, Curr, F>													// Recursive case. Inherits from the singular case for relative resolution
+#define RES_IMPL_S(name) template<size_t I, size_t N, class Arg, class Curr, class F> struct name<I, N, Arg, Curr, F>	// Singular case
+
 
 namespace shl {
 	namespace impl {
@@ -72,75 +80,35 @@ namespace shl {
 		 *	to simplify the process of determining the "most suitable" function (don't have to reduce to a number)
 		 *
 		 * Note: The default specification handles the singular function case (ie. sizeof...(Fns) == 0)
-		 *		 The first specialization handles the actual iteration among several functions
-		 *		 The second specialization handles the actual resolution comparison
+		 *		 The S specialization handles the actual comparison between two functions
+		 *		 The R specialization handles iteration across the list of functions
 		 */
-		template<size_t I, size_t N, class Arg, class F, class... Fns>
-		struct __DefaultResolverImpl {
+		RES_IMPL __DefaultResolverImpl {
 			static constexpr auto value = I;
 			using type = F;
 		};
 
-		template<size_t I, size_t N, class Arg, class Curr, class F, class... Fns>
-		struct __DefaultResolverImpl<I, N, Arg, Curr, F, Fns...> : public __DefaultResolverImpl<I, N, Arg, Curr, F> {
-			static constexpr auto value = better ? __DefaultResolverImpl<N, N + 1, Arg, F, Fns...>::value				// The new function was a better match
-												 : __DefaultResolverImpl<I, N + 1, Arg, Curr, Fns...>::value;			// The old function was a better match
+		RES_IMPL_S(__DefaultResolverImpl) {
+			static constexpr bool better = better_match<Curr, F, Arg>::value;
+			
+			static constexpr size_t value = better ? N : I;
+			using type = std::conditional_t<better, F, Curr>;
 		};
 
-		template<size_t I, size_t N, class Arg, class Curr, class F>
-		class __DefaultResolverImpl<I, N, Arg, Curr, F> {
-			protected:
-				// Helper members to simplify better calculation
-				static constexpr size_t take_level_F = takes_args<F, Arg>::level;		// If take(F) < take(Curr), then F is automatically a better function choice
-				static constexpr size_t take_level_C = takes_args<Curr, Arg>::level;	// Otherwise if take(F) = take(Curr)
-				//static constexpr size_t arg_rank_F = match_rank<F, Arg>::value;		// Then match(F) < match(Curr) means that F is the better function choice
-				//static constexpr size_t arg_rank_C = match_rank<Curr, Arg>::value;	// Where match(F) determines C++ resolution matching <- TODO: Improve
-
-				// Actual better definition
-				//static constexpr bool better = (take_level_F < take_level_C) || (take_level_F == take_level_C && arg_rank_F < arg_rank_C);
-				static constexpr bool better = (take_level_F < take_level_c) || (take_level_F == take_level_C && false);
-
-			public:
-				static constexpr auto value = better ? N : I;
-				using type = std::conditional_t<better, F, Curr>;
-		};
-		
-		// Actual interface struct for c++ resolution. Adds correct index production as expected by Matcher
-		RES_DEF class DefaultResolver {
-			using impl = __DefaultResolverImpl<0, 1, Arg, Fns...>;
-
-			public:
-				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;			// Check that the chosen function works (`__DefaultResolverImpl` can't produce "not found")
-		};
-
-
-		template<size_t I, size_t N, class Arg, class F, class... Fns>
-		struct __BetterResolverImpl {
-			static constexpr auto value = I;
-			using type = F;
-		};
-
-		template<size_t I, size_t N, class Arg, class Curr, class F, class... Fns>
-		struct __BetterResolverImpl<I, N, Arg, Curr, F, Fns...> : public __BetterResolverImpl<I, N, Arg, Curr, F> {
+		RES_IMPL_R(__DefaultResolverImpl) {
 			static constexpr auto value = better ? __DefaultResolverImpl<N, N + 1, Arg, F, Fns...>::value		// The new function was a better match
 				: __DefaultResolverImpl<I, N + 1, Arg, Curr, Fns...>::value;									// The old function was a better match
 		};
 
-		template<size_t I, size_t N, class Arg, class Curr, class F>
-		class __BetterResolverImpl<I, N, Arg, Curr, F> {
-			static constexpr bool better = BetterMatch<Curr, F, Arg>::value;
-			public:
-				static constexpr size_t value = better ? N : I;
-				using type = std::conditional_t<better, F, Curr>;
-		};
-
-
-		RES_DEF class BetterResolver {
-			using impl = __BetterResolverImpl<0, 1, Arg, Fns...>;
+		// Actual interface struct for c++ resolution. Adds correct index production as expected by Matcher
+		RES_DEF DefaultResolver {
+			using impl = __DefaultResolverImpl<0, 1, Arg, Fns...>;
 
 			public:
-				static constexpr auto value = shl::takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;
+				//static constexpr auto value = callable_with<impl::type, Arg>::value ? impl::value : NOT_FOUND;		// This leads to non-exhaustive pattern matches
+				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;
 		};
+
 		// TODO: Add strict resolver that asserts when ambiguous overload found (ie. f(long) and f(short), Default takes first)
 	}
 

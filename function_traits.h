@@ -85,8 +85,8 @@ namespace shl {
 	 * Check if the given type is Callable (operator() is defined)
 	 */
 
-	// Match lambdas and std::function
-		// Note: Doesn't work with generic lambdas
+	 // Match lambdas and std::function
+		 // Note: Doesn't work with generic lambdas
 	template <typename F>
 	struct callable {
 		private:
@@ -127,7 +127,7 @@ namespace shl {
 
 	template<class W, class Ts>
 	struct one : all<W, Ts> {};
-	
+
 	template<class W, class T, class... Ts>
 	struct one<W, std::tuple<T, Ts...>>
 		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, one<W, std::tuple<Ts...>>> {};
@@ -140,32 +140,26 @@ namespace shl {
 	template<class A, class B>
 	constexpr bool less() { return A::value < B::value; }
 
-	template<class...> struct sfinae { using type = void; };
-
-
 	/*
-	 * Check if a function that takes the given parameters is callable with the given arguments (ie. all arguments are convertible)
-	 */
-	// Handles argument level matching
-	template<bool, class Params, class Args>
+	* Impl class to handle differing arities
+	*/
+	template<bool, class P, class A>
+	struct callable_with_impl_helper : std::false_type {};
+
+	template<class... Ps, class... As>
+	struct callable_with_impl_helper<true, std::tuple<Ps...>, std::tuple<As...>> : all<std::true_type, std::tuple<std::is_convertible<As, Ps>...>> {};
+
+	template<class P, class A>
 	struct callable_with_impl : std::false_type {};
 
 	template<class... Params, class... Args>
-	struct callable_with_impl<true, std::tuple<Params...>, std::tuple<Args...>> : all<std::true_type, std::tuple<std::is_convertible<Args, Params>...>> {};
+	struct callable_with_impl<std::tuple<Params...>, std::tuple<Args...>> : callable_with_impl_helper<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
 
-	// Allow callable_with to work on functions directly
-	template<class F, class Args, class=void>
-	struct callable_with_helper : std::false_type {};
-
-	template<class F, class... Args>
-	struct callable_with_helper<F, std::tuple<Args...>, typename sfinae<decltype(std::declval<F>()(std::declval<Args>()...))>::type> : std::true_type {};
-
-	// Interface struct
+	/*
+	* Determine if a function can be called with the given arg types
+	*/
 	template<class F, class Args>
-	struct callable_with : callable_with_helper<F, Args> {};
-
-	template<class... Params, class... Args>
-	struct callable_with<std::tuple<Params...>, std::tuple<Args...>> : callable_with_impl<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
+	struct callable_with : callable_with_impl<F, Args> {};
 
 
 	/*

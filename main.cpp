@@ -6,8 +6,11 @@
 #include "MatchResolver.h"
 #include "Option.h"
 
-// TODO: Get callable_with to work correctly
-	// I can remove all of the old code once I do this
+// TODO: Replace takes_args with callable_with
+	// Get callable_with to work correctly first
+		// Matcher: 59
+		// meta: 262
+	// I can remove most of the old template code once I do this
 	// takes_args considers tuple application (i don't think callable with does)
 // TODO: Figure out how to consider tuple cv-ref differences
 	// This affects compilation and resolution
@@ -44,11 +47,9 @@ int main() {
 	auto c_str = str.c_str();
 	auto f = 3.3f;
 
-	// These are the problem cases
 	std::cout << "Cstring Tuple     - ";
 	shl::match(tupl)
 		| [](int, std::string) { std::cout << "String Tuple\n"; }
-		| f
 		|| [](int, const char*) { std::cout << "Cstring Tuple\n"; };
 
 	std::cout << "Works properly    - ";

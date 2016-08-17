@@ -105,7 +105,7 @@ namespace shl {
 			using impl = __DefaultResolverImpl<0, 1, Arg, Fns...>;
 
 			public:
-				//static constexpr auto value = callable_with<impl::type, Arg>::value ? impl::value : NOT_FOUND;		// This leads to non-exhaustive pattern matches
+				//static constexpr auto value = callable_with<impl::type, std::tuple<Arg>>::value ? impl::value : NOT_FOUND;		// This leads to non-exhaustive pattern matches
 				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;
 		};
 
@@ -127,7 +127,8 @@ namespace shl {
 				using namespace impl;
 
 				// Find the index of the first function that either takes a `T` or is the base case
-				constexpr auto index = (Resolver<T, Fns...>::value == NOT_FOUND) ? __IndexOf<bool, true, 0, base_case<Fns>::value...>::value : Resolver<T, Fns...>::value;
+				using resolver = Resolver<T, Fns...>;
+				constexpr auto index = (resolver::value == NOT_FOUND) ? __IndexOf<bool, true, 0, base_case<Fns>::value...>::value : resolver::value;
 
 				// Raise a compiler error if no function was found (Note: don't create a match with > 4 million cases)
 				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");

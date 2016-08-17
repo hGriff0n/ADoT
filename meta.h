@@ -31,60 +31,17 @@ namespace std {
 }
 
 namespace shl {
-	template<class, class> struct call_matcher;
-
 	namespace impl {
 		// Deprecated code begins
-
-		// Counts the number of ocurrances of eq in the parameter pack
-		//template<auto eq, auto b, auto... ts>
-		template<class T, T eq, T b, T... ts>
-		struct count_where_eq {
-			static constexpr size_t value = (eq == b) + count_where_eq<T, eq, ts...>::value;
-		};
-
-		template<class T, T eq, T b>
-		struct count_where_eq<T, eq, b> {
-			static constexpr size_t value = (eq == b);
-		};
-
-		// Specialization for booleans to accomodate existing code
-		template <bool... bs>
-		struct num_true : count_where_eq<bool, true, bs...> {};
-
-
-		// Impl class to enable safe handling of argument and parameter lists that don't match in arity
-		template<bool, class, class> struct __CallMatcher;
-
-		template<class... Params, class... Args>
-		struct __CallMatcher<true, std::tuple<Params...>, std::tuple<Args...>> {
-			// Can the function be called with the arguments (ie. do the arg types match or can be converted to the function types)
-				// Note: The ordering of Param and Arg is important in std::is_convertible
-			static constexpr bool value = sizeof...(Params) == num_true<std::is_convertible<Args, Params>::value...>::value;
-
-			// Number of conversions that would be needed to successfully call the function (min is the best match)
-				// Note|TODO: This might be changed once I determine how to better implement resolution
-			static constexpr size_t level = value ? sizeof...(Params)-num_true<std::is_same<shl::decay_t<Params>, Args>::value...>::value : NOT_FOUND;
-		};
-
-		template<class... Params, class... Args>
-		struct __CallMatcher<false, std::tuple<Params...>, std::tuple<Args...>> {
-			static constexpr bool value = false;
-			static constexpr size_t level = NOT_FOUND;				// A level of 0 indicates a perfect match
-		};
 
 
 		// Impl class to enable safe handling of types that aren't callable
 		template<bool, class Fn, class... Args>
-		struct __TakesArgs : call_matcher<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+		struct __TakesArgs : callable_with<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+
 		template<class Fn, class... Args>
-		struct __TakesArgs<false, Fn, Args...> : __CallMatcher<false, std::tuple<Fn>, std::tuple<Args...>> {};
+		struct __TakesArgs<false, Fn, Args...> : std::false_type {};
 
-
-		// Disable integral overflow warning on line 111 (the situation will never occur unless someone tries to call a 4 million arg function, but at that point something's wrong anyways)
-				// It will never occur because the `call_matcher<arg_types, decom_type>::level` only equals `-1` if decomposition is `false` or there's a 4 million arg function being called
-#pragma warning (push)
-#pragma warning (disable:4307)
 
 		// Special overload to allow for tuple decomposition
 		template<class Fn, class... Args>
@@ -94,15 +51,9 @@ namespace shl {
 				using decom_type = std::tuple<Args...>;
 				using tuple_type = std::tuple<decom_type>;
 
-				static constexpr bool accepts_tuple = call_matcher<arg_types, tuple_type>::value;
-				static constexpr bool decomposition = call_matcher<arg_types, decom_type>::value;
-
 			public:
-				// Add `1` to a decomposition to allow for matching the tuple to be selected as the better fit
-				static constexpr size_t level = decomposition ? (call_matcher<arg_types, decom_type>::level + 1) : call_matcher<arg_types, tuple_type>::level;
-				static constexpr bool value = accepts_tuple || decomposition;
+				static constexpr bool value = callable_with<arg_types, decom_type>::value || callable_with<arg_types, tuple_type>::value;
 		};
-#pragma warning (pop)
 
 		// Deprecated code ends
 
@@ -124,7 +75,9 @@ namespace shl {
 			&& one<std::true_type, std::tuple<IsBetterArg<F0_Params, F1_Params, Args>...>>::value, std::true_type, std::false_type> {};		// IsBetterArg < std::true_type for 1+ params of f1
 
 
-		// Add size mismatch protection to __BetterMatch
+		/*
+		 *Add size mismatch protection to __BetterMatch
+		 */
 		template<class F0_Params, class F1_Params, class... Args>
 		class __SizeFilter : public std::false_type {};
 
@@ -133,7 +86,9 @@ namespace shl {
 			: __BetterMatchImpl<sizeof...(F0_Params) == sizeof...(F1_Params) && sizeof...(F1_Params) == sizeof...(Args), argpack<F0_Params...>, argpack<F1_Params...>, Args...> {};
 
 
-		// Add tuple application/packing considerations
+		/*
+		 * Add tuple application/packing considerations
+		 */
 		template<class F0_Params, class F1_Params, class... Args>
 		struct __TupleDispatch : std::false_type {};
 
@@ -217,7 +172,9 @@ namespace shl {
 			: std::is_base_of<std::false_type, callable_with<argpack<F0_Params...>, argpack<Args...>>> {};
 
 
-		// Add callable protection to __BetterMatch
+		/*
+		 * Add callable protection to __BetterMatch
+		 */
 		template<bool, bool, class F0, class F1, class... Args>
 		struct __CallableFilter : std::false_type {};
 
@@ -246,12 +203,7 @@ namespace shl {
 	}
 
 
-	// SFINAE traits class to determine matching that accounts for implicit conversions
-	template<class... Params, class... Args>
-	struct call_matcher<std::tuple<Params...>, std::tuple<Args...>> : impl::__CallMatcher<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
-
-
-	// SFINAE wrapper that extracts the function arg types for call_matcher
+	// SFINAE wrapper that extracts the function arg types for callable_with
 	template<class Fn, class... Args>
 	struct takes_args : impl::__TakesArgs<callable<Fn>::value, Fn, shl::decay_t<Args>...> {};
 
@@ -264,6 +216,7 @@ namespace shl {
 	// Simple wrapper to test whether the object can produce a given type 
 	template<class Fn, class Ret>
 	struct can_produce : impl::__CanProduce<callable<Fn>::value, Fn, Ret> {};
+
 
 	// Interface class. Determines if F1 is a better match than F0 for the Args
 	template<class F0, class F1, class... Args>

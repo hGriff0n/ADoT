@@ -32,32 +32,31 @@ namespace std {
 
 namespace shl {
 	namespace impl {
-		// Deprecated code begins
+		template<class... Args> using argpack = std::tuple<Args...>;
+		
 
-
-		// Impl class to enable safe handling of types that aren't callable
+		/*
+		 * Impl class to allow safe handling of non-callable types
+		 *  and to add consideration of tuple decomposition
+		 */
 		template<bool, class Fn, class... Args>
-		struct __TakesArgs : callable_with<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+		struct takes_args : callable_with<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
 
 		template<class Fn, class... Args>
-		struct __TakesArgs<false, Fn, Args...> : std::false_type {};
-
+		struct takes_args<false, Fn, Args...> : std::false_type {};
 
 		// Special overload to allow for tuple decomposition
 		template<class Fn, class... Args>
-		struct __TakesArgs<true, Fn, std::tuple<Args...>> {
+		struct takes_args<true, Fn, argpack<Args...>> {
 			private:
 				using arg_types = typename function_traits<Fn>::arg_types;
-				using decom_type = std::tuple<Args...>;
-				using tuple_type = std::tuple<decom_type>;
+				using decom_type = argpack<Args...>;
+				using tuple_type = argpack<decom_type>;
 
 			public:
 				static constexpr bool value = callable_with<arg_types, decom_type>::value || callable_with<arg_types, tuple_type>::value;
 		};
 
-		// Deprecated code ends
-
-		template<class... Args> using argpack = std::tuple<Args...>;
 
 		/*
 		 * Metastructs to determine the relative ranking of two functions to an argument list
@@ -76,7 +75,7 @@ namespace shl {
 
 
 		/*
-		 *Add size mismatch protection to __BetterMatch
+		 * Add size mismatch protection to __BetterMatch
 		 */
 		template<class F0_Params, class F1_Params, class... Args>
 		class __SizeFilter : public std::false_type {};
@@ -201,11 +200,6 @@ namespace shl {
 		template<class Arg, class Ret>
 		struct __CanProduce<false, Arg, Ret> : std::is_convertible<Arg, Ret> {};
 	}
-
-
-	// SFINAE wrapper that extracts the function arg types for callable_with
-	template<class Fn, class... Args>
-	struct takes_args : impl::__TakesArgs<callable<Fn>::value, Fn, shl::decay_t<Args>...> {};
 
 
 	// Simple wrapper that recognizes the base case function

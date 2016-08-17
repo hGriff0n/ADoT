@@ -136,35 +136,35 @@ namespace shl {
 	struct one<W, std::tuple<T>>
 		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, std::false_type> {};
 
+
 	// Use less than in templates
 	template<class A, class B>
 	constexpr bool less() { return A::value < B::value; }
 
+
 	/*
-	* Impl class to handle differing arities
+	* Impl classes to handle differing arities
 	*/
 	template<bool, class P, class A>
-	struct callable_with_impl_helper : std::false_type {};
-
-	template<class... Ps, class... As>
-	struct callable_with_impl_helper<true, std::tuple<Ps...>, std::tuple<As...>> : all<std::true_type, std::tuple<std::is_convertible<As, Ps>...>> {};
-
-	template<class P, class A>
 	struct callable_with_impl : std::false_type {};
 
-	template<class... Params, class... Args>
-	struct callable_with_impl<std::tuple<Params...>, std::tuple<Args...>> : callable_with_impl_helper<sizeof...(Params) == sizeof...(Args), std::tuple<Params...>, std::tuple<Args...>> {};
+	template<class... Ps, class... As>
+	struct callable_with_impl<true, std::tuple<Ps...>, std::tuple<As...>> : all<std::true_type, std::tuple<std::is_convertible<As, Ps>...>> {};
 
 	/*
 	* Determine if a function can be called with the given arg types
 	*/
 	template<class F, class Args>
-	struct callable_with : callable_with_impl<F, Args> {};
+	struct callable_with : std::false_type {};
+
+	template<class... Ps, class... As>
+	struct callable_with<std::tuple<Ps...>, std::tuple<As...>> : callable_with_impl<sizeof...(Ps) == sizeof...(As), std::tuple<Ps...>, std::tuple<As...>> {};
 
 
 	/*
 	 * Metastructs to determine the relative ordering of two parameters according to overload resolution rules
 	 */
+
 	// Test if F -> T is possible through user conversion operator
 	template<class T, class F>
 	struct IsUserConvertable : std::false_type {};

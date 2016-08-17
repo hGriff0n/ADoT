@@ -4,16 +4,11 @@
 #include <vector>
 
 #include "MatchResolver.h"
-#include "Option.h"
+//#include "Option.h"
 
-// TODO: Replace takes_args with callable_with
-	// Get callable_with to work correctly first
-		// Matcher: 59
-		// meta: 262
-	// I can remove most of the old template code once I do this
-	// takes_args considers tuple application (i don't think callable with does)
 // TODO: Figure out how to consider tuple cv-ref differences
 	// This affects compilation and resolution
+	// This should be handled already I think
 // TODO: Ensure ConvRank is implemented accurately
 	// I don't distinguish within ranks yet
 

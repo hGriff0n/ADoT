@@ -32,14 +32,13 @@ namespace shl {
 		};
 
 		/*
-		 * Helper struct for Matcher that enables compile-time checking of pattern exhaustiveness and
-		 *	function dispatching. Uses `std::enable_if` to create two mutually exclusive functions
-		 *	for handling each case separately without resolution space corruption.
+		 * Helper struct for Matcher that handles all function dispatching without creating
+		 *  fatal compiler errors through mutually exclusive `std::enable_if` specializations
 		 *
-		 *	`invoke` - Handle dispatch to the base case and normal match statements
+		 *	`invoke` - Handle dispatch to the various function cases
 		 *	`nice_invoke` - Gives nicer compiler errors (prevents std::get<N> from producing any) if a non-exhaustive pattern is found
 		 *
-		 *	Can clean up SFINAE functions when `if constexpr` is implemented
+		 *	Can possibly clean up SFINAE functions when `if constexpr` is implemented
 		 */
 		struct __MatchHelper {
 			// Dispatch to the base case (callable<F> == true if base_case<F> == true)
@@ -56,9 +55,12 @@ namespace shl {
 
 			// Apply tuple to the chosen function (only created if the function takes the decomposed tuple)
 			template <class F, class... T>
-			static std::enable_if_t<!base_case<F>::value && takes_args<F, T...>::value> invoke(F&& fn, std::tuple<T...> val) {
+			static std::enable_if_t<!base_case<F>::value && impl::takes_args<callable<F>::value, F, shl::decay_t<T>...>::value> invoke(F&& fn, std::tuple<T...> val) {
 				std::apply(std::forward<F>(fn), std::forward<std::tuple<T...>>(val));
 			}
+
+			// Dispatch to a tuple pack
+			// TODO: Multiple arguments are unimplemented
 
 			// Dispatch to a non-function value
 			template <class F, class T>
@@ -102,11 +104,10 @@ namespace shl {
 
 		// Actual interface struct for c++ resolution. Adds correct index production as expected by Matcher
 		RES_DEF DefaultResolver {
-			using impl = __DefaultResolverImpl<0, 1, Arg, Fns...>;
+			using res = __DefaultResolverImpl<0, 1, Arg, Fns...>;
 
 			public:
-				//static constexpr auto value = callable_with<impl::type, std::tuple<Arg>>::value ? impl::value : NOT_FOUND;		// This leads to non-exhaustive pattern matches
-				static constexpr auto value = takes_args<impl::type, Arg>::value ? impl::value : NOT_FOUND;
+				static constexpr auto value = impl::takes_args<callable<res::type>::value, res::type, shl::decay_t<Arg>>::value ? res::value : NOT_FOUND;
 		};
 
 		// TODO: Add strict resolver that asserts when ambiguous overload found (ie. f(long) and f(short), Default takes first)

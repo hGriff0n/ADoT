@@ -218,7 +218,7 @@ namespace shl {
 
 
 	/*
-	 * Helper structs to reverse the types of a tuple
+	 * Helper structs to reverse the ordering of a parameter pack
 	 */
 	template<class T, class A>
 	struct tuple_add;
@@ -228,16 +228,13 @@ namespace shl {
 		using type = std::tuple<Ts..., As>;
 	};
 
-	template<class Ts>
-	struct reverse;
-
-	template<class T>
-	struct reverse<std::tuple<T>> {
-		using type = std::tuple<T>;
+	template<class T, class... Ts>
+	struct reverse {
+		using type = typename tuple_add<typename reverse<Ts...>::type, T>::type;
 	};
 
-	template<class T, class... Ts>
-	struct reverse<std::tuple<T, Ts...>> {
-		using type = typename tuple_add<typename reverse<std::tuple<Ts...>>::type, T>::type;
+	template<class T>
+	struct reverse<T> {
+		using type = std::tuple<T>;
 	};
 }

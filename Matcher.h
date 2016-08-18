@@ -136,14 +136,16 @@ namespace shl {
 
 	/*
 	* Alternate struct to determine function match ordering under the C++ standard. This resolver more closely
-	*  mirrors compiler behavior in that it refuses compilation if an ambiguous resolution is found.
+	*  mirrors compiler behavior in that it stops compilation if an ambiguous match resolution is found.
 	*
-	* Implements by ensuring that DefaultResolver gives the same answer if the Function list is reversed
+	* Implementation follows the problem of first appearance in DefaultResolver:
+	*  If reversing the order of the function list, gives a different result from DefaultResolver
+	*  Then the result depended on the exact ordering of the list and therefore the resolution is ambiguous
 	*/
 	RES_DEF StrictResolver : public DefaultResolver<Arg, Fns...>{
-		using reverse = impl::ReverseResolver<shl::DefaultResolver, Arg, typename reverse<std::tuple<Fns...>>::type>;
+		using reverse = impl::ReverseResolver<shl::DefaultResolver, Arg, typename reverse<Fns...>::type>;
 
-		static_assert(value == reverse::value, "An ambiguous match case was found by shl::impl::StrictResolver");
+		static_assert(value == reverse::value, "An ambiguous match case was found with shl::impl::StrictResolver");
 	};
 
 

@@ -75,6 +75,7 @@ namespace shl {
 			}
 
 		};
+		
 
 		/*
 		 * Struct to determine the best function to match the arguments according to C++ function resolution rules
@@ -102,16 +103,49 @@ namespace shl {
 				: __DefaultResolverImpl<I, N + 1, Arg, Curr, Fns...>::value;									// The old function was a better match
 		};
 
-		// Actual interface struct for c++ resolution. Adds correct index production as expected by Matcher
-		RES_DEF DefaultResolver {
-			using res = __DefaultResolverImpl<0, 1, Arg, Fns...>;
 
-			public:
-				static constexpr auto value = impl::takes_args<callable<res::type>::value, res::type, shl::decay_t<Arg>>::value ? res::value : NOT_FOUND;
+		/*
+		 * Apply the resolver struct to the reverse of a function list (and return the correct index for the non-reverse list)
+		 *  Note: This can't be used directly as a `RES_CLASS` in Matcher objects (but can be used for implementations)
+		 */
+		template<RES_CLASS Resolver, class Arg, class... Fns>
+		struct ReverseResolver {
+			static constexpr auto value = sizeof...(Fns) - Resolver<Arg, Fns...>::value - 1;
 		};
 
-		// TODO: Add strict resolver that asserts when ambiguous overload found (ie. f(long) and f(short), Default takes first)
+		template<RES_CLASS Resolver, class Arg, class... Fns>
+		struct ReverseResolver<Resolver, Arg, std::tuple<Fns...>> {
+			static constexpr auto value = sizeof...(Fns) - Resolver<Arg, Fns...>::value - 1;
+		};
+
+
+
 	}
+
+	/*
+	 * Default Resolver class for ADoT matching. Mirrors C++ function resolution with 2 changes
+	 *	  1) Considers applying/packing tuples in order to call functions (will be generalised to variant and any in the future)
+	 *	  2) Doesn't throw error if two cases have the same precedence, takes the first one instead (StrictResolver does throw error
+	 */
+	RES_DEF DefaultResolver {
+		using res = impl::__DefaultResolverImpl<0, 1, Arg, Fns...>;
+
+		public:
+		static constexpr auto value = impl::takes_args<callable<res::type>::value, res::type, shl::decay_t<Arg>>::value ? res::value : NOT_FOUND;
+	};
+
+	/*
+	* Alternate struct to determine function match ordering under the C++ standard. This resolver more closely
+	*  mirrors compiler behavior in that it refuses compilation if an ambiguous resolution is found.
+	*
+	* Implements by ensuring that DefaultResolver gives the same answer if the Function list is reversed
+	*/
+	RES_DEF StrictResolver : public DefaultResolver<Arg, Fns...>{
+		using reverse = impl::ReverseResolver<shl::DefaultResolver, Arg, typename reverse<std::tuple<Fns...>>::type>;
+
+		static_assert(value == reverse::value, "An ambiguous match case was found by shl::impl::StrictResolver");
+	};
+
 
 	/*
 	 * Handles execution of match statement by selecting a function from a list based on argument type matching.

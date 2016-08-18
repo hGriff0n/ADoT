@@ -42,7 +42,7 @@ namespace shl {
 	};
 
 	// Interface function for performing a match on-site (ie. no Matcher object is exported to the scope)
-	template<RES_CLASS Resolver = impl::DefaultResolver, class T> constexpr MatchResolver<Resolver, T> match(T&& val) {
+	template<RES_CLASS Resolver = DefaultResolver, class T> constexpr MatchResolver<Resolver, T> match(T&& val) {
 		return std::forward<T>(val);
 	}
 }

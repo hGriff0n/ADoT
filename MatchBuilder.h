@@ -44,7 +44,7 @@ namespace shl {
 	};
 
 	// Interface function for starting a MatchBuilder chain
-	template<RES_CLASS Resolver = impl::DefaultResolver>
+	template<RES_CLASS Resolver = DefaultResolver>
 	constexpr MatchBuilder<Resolver> match() {
 		return std::make_tuple();
 	}

@@ -50,7 +50,7 @@ namespace shl {
 		struct takes_args<true, Fn, argpack<Args...>> {
 			private:
 				using arg_types = typename function_traits<Fn>::arg_types;
-				using decom_type = argpack<Args...>;
+				using decom_type = argpack<shl::decay_t<Args>...>;
 				using tuple_type = argpack<decom_type>;
 
 			public:
@@ -215,4 +215,29 @@ namespace shl {
 	// Interface class. Determines if F1 is a better match than F0 for the Args
 	template<class F0, class F1, class... Args>
 	struct better_match : impl::__CallableFilter<callable<F0>::value, callable<F1>::value, F0, F1, Args...> {};
+
+
+	/*
+	 * Helper structs to reverse the types of a tuple
+	 */
+	template<class T, class A>
+	struct tuple_add;
+
+	template<class... Ts, class As>
+	struct tuple_add<std::tuple<Ts...>, As> {
+		using type = std::tuple<Ts..., As>;
+	};
+
+	template<class Ts>
+	struct reverse;
+
+	template<class T>
+	struct reverse<std::tuple<T>> {
+		using type = std::tuple<T>;
+	};
+
+	template<class T, class... Ts>
+	struct reverse<std::tuple<T, Ts...>> {
+		using type = typename tuple_add<typename reverse<std::tuple<Ts...>>::type, T>::type;
+	};
 }

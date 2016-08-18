@@ -6,13 +6,10 @@
 #include "MatchResolver.h"
 //#include "Option.h"
 
-// TODO: Figure out how to consider tuple cv-ref differences
-	// This affects compilation and resolution
-	// This should be handled already I think
 // TODO: Ensure ConvRank is implemented accurately
 	// I don't distinguish within ranks yet
 
-// TODO: Add StrictMatchResolver (panics on ambiguous functions)
+// TODO: Figure out how to consider tuple cv-ref differences in function resolution
 // TODO: Add in support for default values
 // TODO: Fix intellisense
 
@@ -87,11 +84,11 @@ int main() {
 		| [](int) { std::cout << "An int\n"; }
 		|| [](long) { std::cout << "A long\n"; };
 
-	std::cout << "An int            - ";
-	shl::match(short{ 3 })
-		| [](long) { std::cout << "A long\n"; }
-		|| [](int) { std::cout << "An int\n"; };
-//*/
+	// Throws a compiler error as int->short has the same weight as int->long in resolution
+	//std::cout << "An int            - ";
+	//shl::match<shl::impl::StrictResolver>(int{ 3 })
+	//	| [](long) { std::cout << "A long\n"; }
+	//	|| [](short) { std::cout << "An int\n"; };
 
 	std::cin.get();
 }

@@ -21,7 +21,7 @@ namespace shl {
 		 * Given a pack sequence, find the location of the first `val`
 		 *	Is there a way to do this with constexpr ???
 		 */
-		template <class T, T val, size_t N, T match, T... matches>
+		template<class T, T val, size_t N, T match, T... matches>
 		struct __IndexOf {
 			static constexpr size_t value = (match == val) ? N : __IndexOf<T, val, N + 1, matches...>::value;
 		};
@@ -42,19 +42,19 @@ namespace shl {
 		 */
 		struct __MatchHelper {
 			// Dispatch to the base case (callable<F> == true if base_case<F> == true)
-			template <class F, class T>
+			template<class F, class T>
 			static std::enable_if_t<base_case<F>::value> invoke(F&& fn, T&& val) {
 				fn();
 			}
 
 			// Dispatch to a function that accepts arguments
-			template <class F, class T>
+			template<class F, class T>
 			static std::enable_if_t<!base_case<F>::value && callable<F>::value> invoke(F&& fn, T&& val) {
 				fn(std::forward<T>(val));
 			}
 
 			// Apply tuple to the chosen function (only created if the function takes the decomposed tuple)
-			template <class F, class... T>
+			template<class F, class... T>
 			static std::enable_if_t<!base_case<F>::value && impl::takes_args<callable<F>::value, F, shl::decay_t<T>...>::value> invoke(F&& fn, std::tuple<T...> val) {
 				std::apply(std::forward<F>(fn), std::forward<std::tuple<T...>>(val));
 			}
@@ -63,13 +63,13 @@ namespace shl {
 			// TODO: Multiple arguments are unimplemented
 
 			// Dispatch to a non-function value
-			template <class F, class T>
+			template<class F, class T>
 			static std::enable_if_t<!callable<F>::value> invoke(F&& fn, T&& val) {
 				fn;
 			}
 
 			// I can remove this and the size_t template (see commented code in Matcher), but this makes nicer compiler errors
-			template <size_t N, class T, class... Args>
+			template<size_t N, class T, class... Args>
 			static void nice_invoke(std::tuple<Args...>& fns, T&& val) {
 				invoke(std::get<N>(fns), std::forward<T>(val));
 			}
@@ -117,9 +117,6 @@ namespace shl {
 		struct ReverseResolver<Resolver, Arg, std::tuple<Fns...>> {
 			static constexpr auto value = sizeof...(Fns) - Resolver<Arg, Fns...>::value - 1;
 		};
-
-
-
 	}
 
 	/*
@@ -163,12 +160,15 @@ namespace shl {
 			void match_impl(T&& val) {
 				using namespace impl;
 
-				// Find the index of the first function that either takes a `T` or is the base case
-				using resolver = Resolver<T, Fns...>;
-				constexpr auto index = (resolver::value == NOT_FOUND) ? __IndexOf<bool, true, 0, base_case<Fns>::value...>::value : resolver::value;
+				// Find the index of the base case function 
+				constexpr auto base_index = __IndexOf<bool, true, 0, base_case<Fns>::value...>::value;
 
-				// Raise a compiler error if no function was found (Note: don't create a match with > 4 million cases)
-				static_assert(index < sizeof...(Fns), "Non-exhaustive pattern match found");
+				// Attempt to find a function according to the given resolver
+				constexpr auto index = (Resolver<T, Fns...>::value == NOT_FOUND) ? base_index : Resolver<T, Fns...>::value;
+
+				// Raise compiler errors if no function was found or if the match contains 18,446,744,073,709,551,615 cases (-1 is used for NOT_FOUND)
+				static_assert(sizeof...(Fns) != std::numeric_limits<size_t>::max(), "Match statement contains too many cases. Please consider refactoring");
+				static_assert(sizeof...(Fns) > index, "Non-exhaustive pattern match found. Resolver did not find a valid match in the case list");
 
 				// Call the choosen function
 				__MatchHelper::nice_invoke<index>(fns, std::forward<T>(val));									// Hide compiler errors from `std::get` when index >= sizeof...(Fns)

@@ -7,15 +7,13 @@ namespace shl {
 	/*
 	 * Handles at-site resolution of a match object (ie. evaluation at construction, can't pass around)
 	 *
-	 *	NOTE: MatchResolver's pattern **must** end with a `||` call since match resolution is performed in
-	 *		MatchResolver's destructor which must be called only once for correctness. This distinction is
-	 *		enforced at compile time by the `||` operator and the first bool template. Currently, there is
-	 *		no way of notifying the programmer at compile time if they've missed using the `||`.
+	 *	NOTE: MatchResolver's pattern **must** end with a `||` call since match resolution is performed there.
+	 *		Currently, there is no way of notifying the programmer at compile time if they've forgotten the `||`.
 	 */
-	template <RES_CLASS Resolver, class T, class... Fns>
+	template<RES_CLASS Resolver, class T, class... Fns>
 	class MatchResolver {
 		private:
-			T&& val;						// I don't have to worry about `val` "scope-leaking" because MatchResolver's guaranteed to use it in the current scope
+			T&& val;						// I don't have to worry about `val` "scope-leaking" because MatchResolver's guaranteed to use it in the current scope (if the constructors are deleted)
 			MatchBuilder<Resolver, Fns...> builder;
 
 		public:
@@ -23,7 +21,7 @@ namespace shl {
 			constexpr MatchResolver(T&& val, MatchBuilder<Resolver, Fns...>&& fns) : val{ std::forward<T>(val) }, builder{ std::move(fns) } {}
 			// Can't implement an "error" destructor because of all the temporaries (no way of enforcing a future match)
 
-			template <class F>
+			template<class F>
 			constexpr MatchResolver<Resolver, T, Fns..., shl::decay_t<F>> operator|(F&& fn) {
 				return{ std::forward<T>(val), builder | fn };			// Should I `forward` or `move` the function
 			}

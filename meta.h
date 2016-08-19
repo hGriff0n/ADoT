@@ -40,7 +40,7 @@ namespace shl {
 		 *  and to add consideration of tuple decomposition
 		 */
 		template<bool, class Fn, class... Args>
-		struct takes_args : callable_with<typename function_traits<Fn>::arg_types, std::tuple<Args...>> {};
+		struct takes_args : callable_with<typename function_traits<Fn>::arg_types, argpack<Args...>> {};
 
 		template<class Fn, class... Args>
 		struct takes_args<false, Fn, Args...> : std::false_type {};
@@ -70,8 +70,8 @@ namespace shl {
 		// and there is at least one parameter that is a better match to its argument than the equivalent parameter in the previous best
 		template<class... F0_Params, class... F1_Params, class... Args>
 		struct __BetterMatchImpl<true, argpack<F0_Params...>, argpack<F1_Params...>, Args...>
-			: std::conditional_t<all<std::true_type, IsBetterOrEqArg<F0_Params, F1_Params, Args>...>::value									// IsBetterOrEqArg < std::true_type for all params of f1
-			&& one<std::true_type, IsBetterArg<F0_Params, F1_Params, Args>...>::value, std::true_type, std::false_type> {};					// IsBetterArg < std::true_type for 1+ params of f1
+			: bool_t<all<std::true_type, IsBetterOrEqArg<F0_Params, F1_Params, Args>...>::value									// IsBetterOrEqArg < std::true_type for all params of f1
+			&& one<std::true_type, IsBetterArg<F0_Params, F1_Params, Args>...>::value> {};					// IsBetterArg < std::true_type for 1+ params of f1
 
 
 		/*
@@ -174,11 +174,8 @@ namespace shl {
 		/*
 		 * Add callable protection to __BetterMatch
 		 */
-		template<bool, bool, class F0, class F1, class... Args>
-		struct __CallableFilter : std::false_type {};
-
-		template<class F0, class F1, class... Args>
-		struct __CallableFilter<false, true, F0, F1, Args...> : std::true_type {};
+		template<bool b, bool, class F0, class F1, class... Args>
+		struct __CallableFilter : bool_t<!b> {};								// If one of the functions isn't callable, take the one that is (or the second if neither are callable)
 
 		template<class F0, class F1, class... Args>
 		struct __CallableFilter<true, true, F0, F1, Args...>

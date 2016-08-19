@@ -15,6 +15,7 @@ namespace shl {
 	template<class T>
 	using decay_t = typename decay<T>::type;
 
+
 	/*
 	 * type_traits struct for functions and function objects
 	 */
@@ -114,27 +115,17 @@ namespace shl {
 	 *	all: check that all types in Ts inherit from W (Note: W inherits from W)
 	 *	one: check that one type in Ts inherits from W
 	 */
-	template<class W, class Ts>
-	struct all : std::is_base_of<W, Ts> {};
-
 	template<class W, class T, class... Ts>
-	struct all<W, std::tuple<T, Ts...>>
-		: std::conditional_t<std::is_base_of<W, T>::value, all<W, std::tuple<Ts...>>, std::false_type> {};
+	struct all : std::conditional_t<all<W, T>::value, all<W, Ts...>, std::false_type> {};
 
 	template<class W, class T>
-	struct all<W, std::tuple<T>>
-		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, std::false_type> {};
-
-	template<class W, class Ts>
-	struct one : all<W, Ts> {};
+	struct all<W, T> : std::is_base_of<W, T> {};
 
 	template<class W, class T, class... Ts>
-	struct one<W, std::tuple<T, Ts...>>
-		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, one<W, std::tuple<Ts...>>> {};
+	struct one : std::conditional_t<std::is_base_of<W, T>::value, std::true_type, one<W, Ts...>> {};
 
 	template<class W, class T>
-	struct one<W, std::tuple<T>>
-		: std::conditional_t<std::is_base_of<W, T>::value, std::true_type, std::false_type> {};
+	struct one : all<W, T> {};
 
 
 	// Use less than in templates
@@ -149,7 +140,7 @@ namespace shl {
 	struct callable_with_impl : std::false_type {};
 
 	template<class... Ps, class... As>
-	struct callable_with_impl<true, std::tuple<Ps...>, std::tuple<As...>> : all<std::true_type, std::tuple<std::is_convertible<As, Ps>...>> {};
+	struct callable_with_impl<true, std::tuple<Ps...>, std::tuple<As...>> : all<std::true_type, std::is_convertible<As, Ps>...> {};
 
 	/*
 	* Determine if a function can be called with the given arg types

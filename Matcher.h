@@ -131,7 +131,7 @@ namespace shl {
 		using res = impl::__DefaultResolverImpl<0, 1, Arg, Fns...>;
 
 		public:
-		static constexpr auto value = impl::takes_args<callable<res::type>::value, res::type, shl::decay_t<Arg>>::value ? res::value : NOT_FOUND;
+			static constexpr auto value = impl::takes_args<callable<res::type>::value, res::type, shl::decay_t<Arg>>::value ? res::value : NOT_FOUND;
 	};
 
 	/*

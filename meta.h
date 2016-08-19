@@ -70,8 +70,8 @@ namespace shl {
 		// and there is at least one parameter that is a better match to its argument than the equivalent parameter in the previous best
 		template<class... F0_Params, class... F1_Params, class... Args>
 		struct __BetterMatchImpl<true, argpack<F0_Params...>, argpack<F1_Params...>, Args...>
-			: std::conditional_t<all<std::true_type, std::tuple<IsBetterOrEqArg<F0_Params, F1_Params, Args>...>>::value						// IsBetterOrEqArg < std::true_type for all params of f1
-			&& one<std::true_type, std::tuple<IsBetterArg<F0_Params, F1_Params, Args>...>>::value, std::true_type, std::false_type> {};		// IsBetterArg < std::true_type for 1+ params of f1
+			: std::conditional_t<all<std::true_type, IsBetterOrEqArg<F0_Params, F1_Params, Args>...>::value									// IsBetterOrEqArg < std::true_type for all params of f1
+			&& one<std::true_type, IsBetterArg<F0_Params, F1_Params, Args>...>::value, std::true_type, std::false_type> {};					// IsBetterArg < std::true_type for 1+ params of f1
 
 
 		/*
